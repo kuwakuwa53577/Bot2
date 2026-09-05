@@ -51,7 +51,7 @@ db = firestore.client()
 # --------------------------------------------------
 def save_user_data(user_id, data_dict):
     """ユーザー単位でFirestoreにデータを保存・更新"""
-    doc_ref = db.collection("verifications").document(str(user_id))
+    doc_ref = db.collection("verifications_bot2").document(str(user_id))
     doc_ref.set(data_dict, merge=True)
 
 def load_all_data():
