@@ -111,11 +111,11 @@ async def on_ready():
         print(f"❌ コマンド同期エラー: {e}")
 
 # ==========================================
-# 5. スラッシュコマンド（タイムアウト＆IP公開）
+# 5. スラッシュコマンド（BAN＆IP公開）
 # ==========================================
-@discord_bot.tree.command(name="timeout_user", description="ユーザーをタイムアウトし、登録済みのIPアドレスを表示します")
-@app_commands.checks.has_permissions(moderate_members=True)
-async def timeout_user(interaction: discord.Interaction, member: discord.Member, minutes: int, reason: str = "規約違反"):
+@discord_bot.tree.command(name="ban_user", description="ユーザーをBANし、登録済みのIPアドレスを表示します")
+@app_commands.checks.has_permissions(ban_members=True) # BAN権限を持つ管理者のみ実行可能
+async def ban_user(interaction: discord.Interaction, member: discord.Member, reason: str = "規約違反"):
     await interaction.response.defer()
 
     # 1. Firestore から IP アドレスを取得
@@ -126,28 +126,27 @@ async def timeout_user(interaction: discord.Interaction, member: discord.Member,
     else:
         ip_address = "データなし"
 
-    # 2. タイムアウト処理の実行
+    # 2. DiscordのBAN処理を実行
     try:
-        duration = timedelta(minutes=minutes)
-        await member.timeout(duration, reason=reason)
+        # BANを実行 (delete_message_days=0 は過去メッセージを削除しない設定)
+        await member.ban(reason=reason, delete_message_days=0)
 
-        # 3. 埋め込みメッセージで公開
+        # 3. 埋め込みメッセージで結果とIPを出力
         embed = discord.Embed(
-            title="🚫 ユーザーをタイムアウトしました",
-            color=discord.Color.red()
+            title="💥 ユーザーをBANしました",
+            color=discord.Color.dark_red()
         )
         embed.add_field(name="対象ユーザー", value=f"{member.mention} (`{member.id}`)", inline=False)
-        embed.add_field(name="期間", value=f"{minutes} 分間", inline=True)
         embed.add_field(name="理由", value=reason, inline=True)
-        embed.add_field(name="IPアドレス", value=f"`{ip_address}`", inline=False)
+        embed.add_field(name="公開IPアドレス", value=f"`{ip_address}`", inline=False)
 
         await interaction.followup.send(embed=embed)
 
     except discord.Forbidden:
-        await interaction.followup.send("❌ Botの権限不足、または対象ユーザーのロールがBotより上のためタイムアウトできませんでした。")
+        await interaction.followup.send("❌ Botの権限不足、または対象ユーザーのロールがBotより上のためBANできませんでした。")
     except Exception as e:
         await interaction.followup.send(f"❌ エラーが発生しました: {e}")
-
+        
 # ==========================================
 # 6. アプリ実行（Flask + Discord Bot 併行起動）
 # ==========================================
