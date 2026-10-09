@@ -1,166 +1,82 @@
 import os
-import json
-import asyncio
-from datetime import datetime, timezone, timedelta
-from flask import Flask, request, jsonify
 import discord
-from discord import app_commands
 from discord.ext import commands
-import firebase_admin
-from firebase_admin import credentials, firestore
+from discord import app_commands
 
-# ==========================================
-# 1. 開発環境・設定（環境変数）
-# ==========================================
-BOT_TOKEN = os.environ.get("DISCORD_TOKEN")
-MEMBER_ROLE_ID = int(os.environ.get("MEMBER_ROLE_ID", "0"))
-FIREBASE_CREDENTIALS = os.environ.get("FIREBASE_CREDENTIALS")
-
-# ==========================================
-# 2. Firebase Admin SDK の初期化
-# ==========================================
-if FIREBASE_CREDENTIALS:
-    cred_dict = json.loads(FIREBASE_CREDENTIALS)
-    cred = credentials.Certificate(cred_dict)
-    firebase_admin.initialize_app(cred)
-    print("✅ Firebase Admin SDK の初期化に成功しました")
-else:
-    print("❌ FIREBASE_CREDENTIALS が設定されていません")
-
-db = firestore.client()
-
-# ==========================================
-# 3. Flask アプリケーションの設定
-# ==========================================
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Bot status: Running"
-
-@app.route("/ping")
-def ping():
-    # 204 No Content を返してデータ量をゼロにし、Cronなどの出力オーバーエラーを防ぐ
-    return "", 204
-
-@app.route("/verify", methods=["POST"])
-def verify():
-    """Web認証等から呼ばれてロール付与＆FirestoreへIP保存するエンドポイント"""
-    data = request.json or {}
-    user_id = data.get("user_id")
-    user_ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-    if user_ip and "," in user_ip:
-        user_ip = user_ip.split(",")[0].strip()
-
-    username = data.get("username", "Unknown")
-    roles = data.get("roles", [])
-
-    if not user_id:
-        return jsonify({"status": "error", "message": "user_id is required"}), 400
-
-    # Firestore の verifications コレクションに書き込み
-    jst = timezone(timedelta(hours=9))
-    now_str = datetime.now(jst).strftime("%Y-%m-%d %H:%M:%S")
-
-    doc_ref = db.collection("verifications").document(str(user_id))
-    doc_ref.set({
-        "ip": user_ip,
-        "username": username,
-        "roles": roles,
-        "updated_at": now_str
-    }, merge=True)
-
-    # Discord 側のロール付与処理（非同期タスクとしてバックグラウンド実行）
-    if discord_bot.is_ready() and MEMBER_ROLE_ID != 0:
-        asyncio.run_coroutine_threadsafe(
-            add_role_to_member(int(user_id)),
-            discord_bot.loop
-        )
-
-    return jsonify({"status": "success", "ip": user_ip}), 200
-
-# ==========================================
-# 4. Discord Bot の設定
-# ==========================================
 intents = discord.Intents.default()
-intents.members = True  # PRIVILEGED GATEWAY INTENTS (Developer PortalでON必須)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-discord_bot = commands.Bot(command_prefix="!", intents=intents)
-
-async def add_role_to_member(user_id: int):
-    """指定ユーザーに指定のロールを付与するヘルパー関数"""
-    for guild in discord_bot.guilds:
-        member = guild.get_member(user_id)
-        if member:
-            role = guild.get_role(MEMBER_ROLE_ID)
-            if role:
-                try:
-                    await member.add_roles(role)
-                    print(f"✅ {member.display_name} にロールを付与しました")
-                except Exception as e:
-                    print(f"❌ ロール付与エラー: {e}")
-
-@discord_bot.event
+@bot.event
 async def on_ready():
-    print(f"🤖 Botがログインしました: {discord_bot.user.name}")
     try:
-        # スラッシュコマンドの同期
-        synced = await discord_bot.tree.sync()
-        print(f"🔁 {len(synced)} 個のスラッシュコマンドを同期しました")
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} command(s)")
     except Exception as e:
-        print(f"❌ コマンド同期エラー: {e}")
+        print(f"Failed to sync commands: {e}")
+    print(f"Logged in as {bot.user}")
 
-# ==========================================
-# 5. スラッシュコマンド（BAN＆IP公開）
-# ==========================================
-@discord_bot.tree.command(name="ban_user", description="ユーザーをBANし、登録済みのIPアドレスを表示します")
-@app_commands.checks.has_permissions(ban_members=True) # BAN権限を持つ管理者のみ実行可能
-async def ban_user(interaction: discord.Interaction, member: discord.Member, reason: str = "規約違反"):
-    await interaction.response.defer()
-
-    # 1. Firestore から IP アドレスを取得
-    user_doc = db.collection("verifications").document(str(member.id)).get()
-    
-    if user_doc.exists:
-        ip_address = user_doc.to_dict().get("ip", "IP未記録")
-    else:
-        ip_address = "データなし"
-
-    # 2. DiscordのBAN処理を実行
-    try:
-        # BANを実行 (delete_message_days=0 は過去メッセージを削除しない設定)
-        await member.ban(reason=reason, delete_message_days=0)
-
-        # 3. 埋め込みメッセージで結果とIPを出力
-        embed = discord.Embed(
-            title="💥 ユーザーをBANしました",
-            color=discord.Color.dark_red()
+# /m コマンド（モード、回数、テキストを指定可能）
+@bot.tree.command(name="m", description="　　　")
+@app_commands.describe(
+    mode="送信するモードを選んでください（投票 or 画像）",
+    count="送信する回数（数字で指定）",
+    text="投票のタイトル、または画像と一緒に送るメッセージ"
+)
+# mode 引数に選択肢（Choices）を設定
+@app_commands.choices(mode=[
+    app_commands.Choice(name="📊 投票を送信する", value="poll"),
+    app_commands.Choice(name="🖼️ 画像を送信する", value="image")
+])
+async def send_m(
+    interaction: discord.Interaction, 
+    mode: str,
+    count: int = 1, 
+    text: str = "デフォルトのメッセージ"
+):
+    # --- 📊 【投票モード】の場合 ---
+    if mode == "poll":
+        # 投票オブジェクトの作成
+        poll = discord.Poll(
+            question=text,
+            duration=discord.PollDuration.hours_1
         )
-        embed.add_field(name="対象ユーザー", value=f"{member.mention} (`{member.id}`)", inline=False)
-        embed.add_field(name="理由", value=reason, inline=True)
-        embed.add_field(name="公開IPアドレス", value=f"`{ip_address}`", inline=False)
+        poll.add_answer(text="さーもん万歳！", emoji="💩")
+        poll.add_answer(text="さーもん万歳！", emoji="💩")
 
-        await interaction.followup.send(embed=embed)
+        await interaction.response.send_message(content="@everyone サーモンの集い！！さーもん万歳！@everyone @everyone サーモンの集い！！さーもん万歳！@everyone @everyone サーモンの集い！！さーもん万歳！@everyone @everyone サーモンの集い！！さーもん万歳！@everyone @everyone サーモンの集い！！さーもん万歳！@everyone @everyone サーモンの集い！！さーもん万歳！@everyone @everyone サーモンの集い！！さーもん万歳！@everyone @everyone サーモンの集い！！さーもん万歳！@everyone @everyone サーモンの集い！！さーもん万歳！@everyone @everyone サーモンの集い！！さーもん万歳！@everyone", poll=poll)
 
-    except discord.Forbidden:
-        await interaction.followup.send("❌ Botの権限不足、または対象ユーザーのロールがBotより上のためBANできませんでした。")
-    except Exception as e:
-        await interaction.followup.send(f"❌ エラーが発生しました: {e}")
-        
-# ==========================================
-# 6. アプリ実行（Flask + Discord Bot 併行起動）
-# ==========================================
-async def main():
-    # Flask をバックグラウンド（別スレッド）で起動
-    import threading
-    port = int(os.environ.get("PORT", 10000))
-    threading.Thread(
-        target=lambda: app.run(host="0.0.0.0", port=port, use_reloader=False),
-        daemon=True
-    ).start()
+        # 1回目の送信
+        await interaction.response.send_message(poll=poll)
 
-    # Discord Bot の起動
-    await discord_bot.start(BOT_TOKEN)
+        # 2回目以降の繰り返し送信
+        if count > 1:
+            for _ in range(count - 1):
+                await interaction.channel.send(poll=poll)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+    # --- 🖼️ 【画像モード】の場合 ---
+    elif mode == "image":
+        # 送信したい画像ファイルのパス（Botと同じフォルダにある前提）
+        image_path = "sample.png" 
+
+        # ファイルが存在するか確認（エラー対策）
+        if not os.path.exists(image_path):
+            await interaction.response.send_message(
+                f"エラー: Botのフォルダ内に `{image_path}` が見つかりません。画像を配置してください。", 
+                ephemeral=True
+            )
+            return
+
+        # 1回目の送信
+        file1 = discord.File(image_path)
+        await interaction.response.send_message(content=text, file=file1)
+
+        # 2回目以降の繰り返し送信
+        if count > 1:
+            for _ in range(count - 1):
+                # ループごとに新しくFileオブジェクトを作成する（使い回し不可の対策）
+                file_loop = discord.File(image_path)
+                await interaction.channel.send(content=text, file=file_loop)
+
+# 環境変数からトークンを取得して起動
+token = os.environ.get("DISCORD_TOKEN")
+bot.run(token)
