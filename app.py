@@ -56,7 +56,7 @@ async def send_m(
     # --- 🖼️ 【画像モード】の場合 ---
     elif mode == "image":
         # 送信したい画像ファイルのパス（Botと同じフォルダにある前提）
-        image_path = "acc4d0a0.gif, " 
+        image_path = "acc4d0a0.gif, a62e0a5b.gif" 
 
         # ファイルが存在するか確認（エラー対策）
         if not os.path.exists(image_path):
