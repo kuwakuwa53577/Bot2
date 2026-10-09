@@ -22,13 +22,13 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
         duration=discord.PollDuration.hours_1
     )
     # 選択肢のテキストや絵文字は重複させないように変更
-    poll.add_answer(text="さーもん万歳！(1)", emoji="💩")
-    poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
+    poll.add_answer(text="さーもん万歳！", emoji="💩")
+    poll.add_answer(text="ｻｰﾓﾝ万歳！", emoji="🐶")
     return poll
 
 
 # /m コマンド（モード、回数、テキストを指定可能）
-@bot.tree.command(name="m", description="メッセージや画像を送信します")
+@bot.tree.command(name="m", description="       ")
 @app_commands.describe(
     mode="送信するモードを選んでください（投票 or 画像）",
     count="送信する回数（数字で指定）",
