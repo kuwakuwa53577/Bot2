@@ -29,11 +29,11 @@ async def on_ready():
         print(f"Failed to sync commands: {e}")
     print(f"Logged in as {bot.user}")
 
-# 投票オブジェクトを作成するヘルパー関数
+# 投票オブジェクトを作成するヘルパー関数（エラー対策済み）
 def create_salmon_poll(question_text: str) -> discord.Poll:
     poll = discord.Poll(
         question=question_text,
-        duration=discord.PollDuration.hours_1
+        duration=1  # 1時間に設定 (数値または対応する指定)
     )
     poll.add_answer(text="さーもん万歳！(1)", emoji="💩")
     poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
@@ -52,7 +52,7 @@ async def send_m(
     count: int = 1, 
     text: str = "さーもん万歳！"
 ):
-    # 1. まず「処理中」の応答を返してタイムアウト（3秒ルール）を防ぐ
+    # 3秒タイムアウトを防ぐため先に応答を保留する
     await interaction.response.defer(thinking=True)
 
     content_text = "@everyone サーモンの集い！！さーもん万歳！"
@@ -61,20 +61,18 @@ async def send_m(
     image_files = ["acc4d0a0.gif", "a62e0a5b.gif"]
     existing_files = [f for f in image_files if os.path.exists(f)]
 
-    # 2. 回数分だけメッセージを送信（followupを使うことでエラーを防ぐ）
+    # 回数分だけメッセージを送信
     for i in range(count):
         poll_obj = create_salmon_poll(text)
         files_obj = [discord.File(f) for f in existing_files] if existing_files else []
 
         try:
             if files_obj:
-                # 画像と投票を一緒に送る
                 if i == 0:
                     await interaction.followup.send(content=content_text, poll=poll_obj, files=files_obj)
                 else:
                     await interaction.channel.send(content=content_text, poll=poll_obj, files=files_obj)
             else:
-                # 画像が見つからない場合は投票とテキストのみ
                 if i == 0:
                     await interaction.followup.send(content=content_text, poll=poll_obj)
                 else:
