@@ -5,7 +5,7 @@ from discord.ext import commands
 from discord import app_commands
 from flask import Flask
 
-# --- 1. Flask（簡易Webサーバー）の設定 ---
+# --- 1. Flask（簡易Webサーバー）の設定（Renderのポート対策） ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -13,7 +13,6 @@ def home():
     return "Bot is running!"
 
 def run_web():
-    # Renderが指定するポート（環境変数 PORT）またはデフォルトで8080を使用
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
 
@@ -30,65 +29,61 @@ async def on_ready():
         print(f"Failed to sync commands: {e}")
     print(f"Logged in as {bot.user}")
 
-# /m コマンド（投票・画像送信）
+# 投票オブジェクトを作成するヘルパー関数
 def create_salmon_poll(question_text: str) -> discord.Poll:
     poll = discord.Poll(
         question=question_text,
         duration=discord.PollDuration.hours_1
     )
+    # 選択肢や絵文字が重複しないように設定
     poll.add_answer(text="さーもん万歳！(1)", emoji="💩")
     poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
     return poll
 
-@bot.tree.command(name="m", description="メッセージや画像を送信します")
+# /m コマンド（画像と投票を同時に送信）
+@bot.tree.command(name="m", description="画像と投票を同時に送信します")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(
-    mode="送信するモードを選んでください（投票 or 画像）",
     count="送信する回数（数字で指定）",
-    text="投票のタイトル、または画像と一緒に送るメッセージ"
+    text="投票のタイトルや画像と一緒に送るメッセージ"
 )
-@app_commands.choices(mode=[
-    app_commands.Choice(name="📊 投票を送信する", value="poll"),
-    app_commands.Choice(name="🖼️ 画像を送信する", value="image")
-])
 async def send_m(
     interaction: discord.Interaction, 
-    mode: str,
     count: int = 1, 
-    text: str = "デフォルトのメッセージ"
+    text: str = "さーもん万歳！"
 ):
     content_text = "@everyone サーモンの集い！！さーもん万歳！"
 
-    if mode == "poll":
-        poll1 = create_salmon_poll(text)
+    # 送信したい画像ファイルのリスト
+    image_files = ["acc4d0a0.gif", "a62e0a5b.gif"]
+    existing_files = [f for f in image_files if os.path.exists(f)]
+
+    # --- 1回目の送信（コマンドへの応答として、画像と投票を同時に送信） ---
+    poll1 = create_salmon_poll(text)
+    files1 = [discord.File(f) for f in existing_files] if existing_files else []
+
+    if files1:
+        # 画像と投票を同時に送る
+        await interaction.response.send_message(content=content_text, poll=poll1, files=files1)
+    else:
+        # 画像ファイルが見つからない場合は投票とテキストのみ送信
         await interaction.response.send_message(content=content_text, poll=poll1)
-        if count > 1:
-            for _ in range(count - 1):
-                poll_loop = create_salmon_poll(text)
+
+    # --- 2回目以降の繰り返し送信（countが2以上の場合） ---
+    if count > 1:
+        for _ in range(count - 1):
+            poll_loop = create_salmon_poll(text)
+            files_loop = [discord.File(f) for f in existing_files] if existing_files else []
+            
+            if files_loop:
+                await interaction.channel.send(content=content_text, poll=poll_loop, files=files_loop)
+            else:
                 await interaction.channel.send(content=content_text, poll=poll_loop)
 
-    elif mode == "image":
-        image_files = ["acc4d0a0.gif", "a62e0a5b.gif"]
-        existing_files = [f for f in image_files if os.path.exists(f)]
-
-        if not existing_files:
-            await interaction.response.send_message(
-                f"エラー: 画像ファイルが見つかりません。", 
-                ephemeral=True
-            )
-            return
-
-        files1 = [discord.File(f) for f in existing_files]
-        await interaction.response.send_message(content=text, files=files1)
-        if count > 1:
-            for _ in range(count - 1):
-                files_loop = [discord.File(f) for f in existing_files]
-                await interaction.channel.send(content=text, files=files_loop)
-
-# --- 3. 起動処理（WebサーバーとDiscordボットを同時に動かす） ---
+# --- 3. 起動処理 ---
 if __name__ == "__main__":
-    # 別スレッドでWebサーバーを起動（これでRenderのポートスキャンをクリア）
+    # Webサーバーを別スレッドで起動
     web_thread = threading.Thread(target=run_web)
     web_thread.daemon = True
     web_thread.start()
