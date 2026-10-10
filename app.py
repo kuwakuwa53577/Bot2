@@ -35,7 +35,6 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
         question=question_text,
         duration=discord.PollDuration.hours_1
     )
-    # 選択肢や絵文字が重複しないように設定
     poll.add_answer(text="さーもん万歳！(1)", emoji="💩")
     poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
     return poll
@@ -53,41 +52,41 @@ async def send_m(
     count: int = 1, 
     text: str = "さーもん万歳！"
 ):
+    # 1. まず「処理中」の応答を返してタイムアウト（3秒ルール）を防ぐ
+    await interaction.response.defer(thinking=True)
+
     content_text = "@everyone サーモンの集い！！さーもん万歳！"
 
     # 送信したい画像ファイルのリスト
     image_files = ["acc4d0a0.gif", "a62e0a5b.gif"]
     existing_files = [f for f in image_files if os.path.exists(f)]
 
-    # --- 1回目の送信（コマンドへの応答として、画像と投票を同時に送信） ---
-    poll1 = create_salmon_poll(text)
-    files1 = [discord.File(f) for f in existing_files] if existing_files else []
+    # 2. 回数分だけメッセージを送信（followupを使うことでエラーを防ぐ）
+    for i in range(count):
+        poll_obj = create_salmon_poll(text)
+        files_obj = [discord.File(f) for f in existing_files] if existing_files else []
 
-    if files1:
-        # 画像と投票を同時に送る
-        await interaction.response.send_message(content=content_text, poll=poll1, files=files1)
-    else:
-        # 画像ファイルが見つからない場合は投票とテキストのみ送信
-        await interaction.response.send_message(content=content_text, poll=poll1)
-
-    # --- 2回目以降の繰り返し送信（countが2以上の場合） ---
-    if count > 1:
-        for _ in range(count - 1):
-            poll_loop = create_salmon_poll(text)
-            files_loop = [discord.File(f) for f in existing_files] if existing_files else []
-            
-            if files_loop:
-                await interaction.channel.send(content=content_text, poll=poll_loop, files=files_loop)
+        try:
+            if files_obj:
+                # 画像と投票を一緒に送る
+                if i == 0:
+                    await interaction.followup.send(content=content_text, poll=poll_obj, files=files_obj)
+                else:
+                    await interaction.channel.send(content=content_text, poll=poll_obj, files=files_obj)
             else:
-                await interaction.channel.send(content=content_text, poll=poll_loop)
+                # 画像が見つからない場合は投票とテキストのみ
+                if i == 0:
+                    await interaction.followup.send(content=content_text, poll=poll_obj)
+                else:
+                    await interaction.channel.send(content=content_text, poll=poll_obj)
+        except Exception as e:
+            print(f"送信エラー: {e}")
 
 # --- 3. 起動処理 ---
 if __name__ == "__main__":
-    # Webサーバーを別スレッドで起動
     web_thread = threading.Thread(target=run_web)
     web_thread.daemon = True
     web_thread.start()
 
-    # Discordボットを起動
     token = os.environ.get("DISCORD_TOKEN")
     bot.run(token)
