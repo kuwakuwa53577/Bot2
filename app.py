@@ -23,6 +23,12 @@ intents = discord.Intents.default()
 intents.message_content = True 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# 🚨【設定項目】コマンドを機能させたくないチャンネルのIDをここに入れてください
+# 例: IGNORE_CHANNEL_IDS = [123456789012345678, 987654321098765432]
+IGNORE_CHANNEL_IDS = [
+    000000000000000000  # ← ここに無効化したいチャンネルのIDを貼り付けてください
+]
+
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
@@ -48,12 +54,21 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(text="投票のタイトルや画像と一緒に送るメッセージ")
 async def send_m(interaction: discord.Interaction, text: str = "さーもん万歳！"):
+    
+    # 💡 実行されたチャンネルのIDが、ブラックリストに入っているかチェック
+    if interaction.channel_id in IGNORE_CHANNEL_IDS:
+        # 実行した人にだけ見える（他の人には見えない）メッセージで警告して終了
+        await interaction.response.send_message(
+            "⚠️ このチャンネルでは `/m` コマンドの使用が禁止されています。", 
+            ephemeral=True
+        )
+        return
+
     # 最初のレスポンスを保留
     await interaction.response.defer(thinking=True)
 
-    # 💡 ご指定の招待URL（https://discord.gg/V2gX5KJT7e）を組み込んだメッセージの塊を作成
-    # 1つの塊が約80文字になり、それを24回繰り返すことで1920文字の巨大テキストにします（制限2000文字の限界値）
-    single_block = "@everyone サーモンの集い！！さーもん万歳！ https://discord.gg/V2gX5KJT7e \n\n"
+    # 招待URLを含んだ巨大テキスト
+    single_block = "@everyone サーモンの集い！！さーもん万歳！ https://discord.gg \n\n"
     heavy_content = single_block * 24 
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
@@ -61,20 +76,17 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     image_files = ["acc4d0a0.gif", "a62e0a5b.gif"]
     existing_files = [f for f in image_files if os.path.exists(f)]
 
-    # 💡 外部アプリの回数制限（最大数エラー）に引っかからない安全な最大値「5回」
     target_count = 5 
 
     for i in range(target_count):
         try:
             files_obj = [discord.File(f) for f in existing_files] if existing_files else []
             
-            # メッセージ（大量の改行、everyone、新しい招待URL入り）を送信
             if files_obj:
                 await interaction.followup.send(content=heavy_content, files=files_obj, allowed_mentions=mention_setting)
             else:
                 await interaction.followup.send(content=heavy_content, allowed_mentions=mention_setting)
             
-            # レートリミット（速度制限）を回避するために少し待つ
             await asyncio.sleep(0.8)
 
         except Exception as e:
@@ -82,7 +94,7 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
             if "maximum number of follow up messages" in str(e):
                 break
 
-    # 最後に1回だけ投票を添えて締めくくる
+    # 最後に1回だけ投票を送信
     try:
         poll_obj = create_salmon_poll(text)
         await interaction.followup.send(poll=poll_obj)
