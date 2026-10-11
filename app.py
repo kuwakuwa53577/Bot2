@@ -45,7 +45,7 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(
-    count="送信する回数（数字で指定。最大3回まで推奨）",
+    count="送信する回数（数字で指定。最大3回まで）",
     text="投票のタイトルや画像と一緒に送るメッセージ"
 )
 async def send_m(
@@ -65,14 +65,15 @@ async def send_m(
     success_count = 0
 
     try:
-        # Discordの制限（followupの上限）を考慮し、最大3回までに制限する
-        max_loop = min(count, 3)
+        # ユーザーインストール型で権限エラー（Missing Access）を出さないため、
+        # すべて interaction.followup.send を使用し、上限を超えないよう最大3回までに制限します
+        max_loop = min(max(count, 1), 3)
 
         for i in range(max_loop):
             files_obj = [discord.File(f) for f in existing_files] if existing_files else []
             poll_obj = create_salmon_poll(text)
 
-            # 1回目は followup.send、2回目以降も followup.send を使用（権限エラーを回避）
+            # 画像とテキストを送信
             if files_obj:
                 await interaction.followup.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
             else:
@@ -84,7 +85,7 @@ async def send_m(
             success_count += 1
 
         if count > 3:
-            await interaction.followup.send("※Discordの仕様上の制限により、最大3回分まで送信しました。")
+            await interaction.followup.send("※Discordの仕様上の制限（上限）により、最大3回分まで送信しました。", allowed_mentions=discord.AllowedMentions.none())
 
     except Exception as e:
         print(f"送信エラー: {e}")
