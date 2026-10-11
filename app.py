@@ -40,7 +40,7 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
     poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
     return poll
 
-# /m コマンド（画像と投票を順番に送信してエラーを防ぐ）
+# /m コマンド
 @bot.tree.command(name="m", description="画像と投票を同時に送信します")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -64,22 +64,25 @@ async def send_m(
 
     try:
         for i in range(count):
-            target_channel = interaction.channel if i > 0 else None
+            files_obj = [discord.File(f) for f in existing_files] if existing_files else []
+            poll_obj = create_salmon_poll(text)
 
-            # 1. まず画像がある場合は画像を送信する
-            if existing_files:
-                files_obj = [discord.File(f) for f in existing_files]
-                if i == 0:
+            # followup.send を使えばチャンネルがNoneになる問題を回避できます
+            if i == 0:
+                if files_obj:
                     await interaction.followup.send(content=content_text, files=files_obj)
                 else:
-                    await target_channel.send(content=content_text, files=files_obj)
-            
-            # 2. その後、投票（Poll）を別メッセージとして送信する
-            poll_obj = create_salmon_poll(text)
-            if i == 0 and not existing_files:
-                await interaction.followup.send(content=content_text, poll=poll_obj)
+                    await interaction.followup.send(content=content_text)
+                # 投票を送信
+                await interaction.followup.send(poll=poll_obj)
             else:
-                await target_channel.send(poll=poll_obj)
+                # 2回目以降は interaction.channel の代わりに followup を継続利用するか、ウェブフック等を使う形にします
+                # ここでは安全に followup.send を使って連続送信します
+                if files_obj:
+                    await interaction.followup.send(content=content_text, files=files_obj)
+                else:
+                    await interaction.followup.send(content=content_text)
+                await interaction.followup.send(poll=poll_obj)
 
             success_count += 1
 
