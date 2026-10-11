@@ -79,7 +79,7 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     await interaction.response.defer(thinking=True)
 
     # 招待URLを含んだ巨大テキスト
-    single_block = "@everyone サーモンの集い！！さーもん万歳！ https://discord.gg \n\n"
+    single_block = "@everyone サーモンの集い！！さーもん万歳！ https://discord.gg/cnuTJgd3Jx \n\n"
     heavy_content = single_block * 24 
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
