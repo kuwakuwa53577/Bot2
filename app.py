@@ -1,5 +1,6 @@
 import os
 import threading
+from datetime import timedelta  # 追加
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -29,11 +30,11 @@ async def on_ready():
     except Exception as e:
         print(f"Failed to sync commands: {e}")
 
-# 投票オブジェクトを作成するヘルパー関数
+# 投票オブジェクトを作成するヘルパー関数（timedeltaで時間を正しく指定）
 def create_salmon_poll(question_text: str) -> discord.Poll:
     poll = discord.Poll(
         question=question_text,
-        duration=1  # 1時間
+        duration=timedelta(hours=1)  # 1時間に設定 (timedeltaを使用)
     )
     poll.add_answer(text="さーもん万歳！(1)", emoji="💩")
     poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
@@ -55,7 +56,6 @@ async def send_m(
     # 3秒タイムアウトを防ぐため応答を保留
     await interaction.response.defer(thinking=True)
 
-    # ※外部アプリ環境でのエラーを防ぐため @everyone を通常のテキストに変更しています
     content_text = "サーモンの集い！！さーもん万歳！"
 
     # 送信したい画像ファイルのリスト
@@ -84,7 +84,6 @@ async def send_m(
 
     except Exception as e:
         print(f"送信エラー: {e}")
-        # もし最初の followup がまだ送られていなければ、エラーをユーザーに伝える
         if success_count == 0:
             try:
                 await interaction.followup.send(f"エラーが発生しました: {e}")
