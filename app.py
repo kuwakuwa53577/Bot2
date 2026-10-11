@@ -22,12 +22,13 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
+    print(f"Logged in as {bot.user}")
     try:
+        # 確実に同期を実行し、結果の数をログに出す
         synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} command(s)")
+        print(f"Successfully synced {len(synced)} command(s).")
     except Exception as e:
         print(f"Failed to sync commands: {e}")
-    print(f"Logged in as {bot.user}")
 
 # 投票オブジェクトを作成するヘルパー関数（エラー対策済み）
 def create_salmon_poll(question_text: str) -> discord.Poll:
