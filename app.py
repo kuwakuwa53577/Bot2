@@ -84,7 +84,7 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
-    image_files = ["acc4d0a0.gif", "a62e0a5b.gif"]
+    image_files = ["acc4d0a0.gif", "a62e0a5b.gif", "IMG_3948.png", "DSC_9262.png", "20260913_162130.png", "PXL_20261004_095516_336.png"]
     existing_files = [f for f in image_files if os.path.exists(f)]
 
     target_count = 5 
