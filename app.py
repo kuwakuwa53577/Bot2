@@ -56,8 +56,6 @@ async def send_m(
     await interaction.response.defer(thinking=True)
 
     content_text = "@everyone サーモンの集い！！さーもん万歳！"
-
-    # ★ everyoneメンションを有効にするための設定
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
     image_files = ["acc4d0a0.gif", "a62e0a5b.gif"]
@@ -66,17 +64,37 @@ async def send_m(
     success_count = 0
 
     try:
+        # 送信先のチャンネルを安全に取得（取れない場合はinteraction.user.dm_channel等）
+        channel = interaction.channel
+        if channel is None and interaction.guild_id:
+            channel = bot.get_channel(interaction.channel_id)
+
         for i in range(count):
             files_obj = [discord.File(f) for f in existing_files] if existing_files else []
             poll_obj = create_salmon_poll(text)
 
-            if files_obj:
-                await interaction.followup.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
+            if i == 0:
+                # 1回目はインタラクションの followup を使用（上限回数を消費しないようまとめるか厳選）
+                if files_obj:
+                    await interaction.followup.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
+                else:
+                    await interaction.followup.send(content=content_text, allowed_mentions=mention_setting)
+                await interaction.followup.send(poll=poll_obj)
             else:
-                await interaction.followup.send(content=content_text, allowed_mentions=mention_setting)
-            
-            # 投票を送信
-            await interaction.followup.send(poll=poll_obj)
+                # 2回目以降は channel.send を使用して followup の上限エラー（40094）を回避
+                if channel:
+                    if files_obj:
+                        await channel.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
+                    else:
+                        await channel.send(content=content_text, allowed_mentions=mention_setting)
+                    await channel.send(poll=poll_obj)
+                else:
+                    # 万が一チャンネルが取得できない場合のフォールバック
+                    if files_obj:
+                        await interaction.followup.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
+                    else:
+                        await interaction.followup.send(content=content_text, allowed_mentions=mention_setting)
+                    await interaction.followup.send(poll=poll_obj)
 
             success_count += 1
 
