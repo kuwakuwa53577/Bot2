@@ -23,10 +23,14 @@ intents = discord.Intents.default()
 intents.message_content = True 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# 🚨【設定項目】コマンドを機能させたくないチャンネルのIDをここに入れてください
-# 例: IGNORE_CHANNEL_IDS = [123456789012345678, 987654321098765432]
+# 🚨【設定項目①】コマンドを禁止したい「チャンネルID」
 IGNORE_CHANNEL_IDS = [
-    1555585863402913922  # ← ここに無効化したいチャンネルのIDを貼り付けてください
+    1555585863402913922  # 禁止したいチャンネルのID（なければそのままでOK）
+]
+
+# 🚨【設定項目②】コマンドを禁止したい「サーバーID」
+IGNORE_GUILD_IDS = [
+    1555584934951915706  # ← ここに無効化したいサーバーのIDを貼り付けてください
 ]
 
 @bot.event
@@ -55,9 +59,16 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
 @app_commands.describe(text="投票のタイトルや画像と一緒に送るメッセージ")
 async def send_m(interaction: discord.Interaction, text: str = "さーもん万歳！"):
     
-    # 💡 実行されたチャンネルのIDが、ブラックリストに入っているかチェック
+    # 💡 ⚙️ 実行された「サーバー」がブラックリストに入っているかチェック
+    if interaction.guild_id in IGNORE_GUILD_IDS:
+        await interaction.response.send_message(
+            "⚠️ このサーバーでは `/m` コマンドの使用が禁止されています。", 
+            ephemeral=True
+        )
+        return
+
+    # 💡 実行された「チャンネル」がブラックリストに入っているかチェック
     if interaction.channel_id in IGNORE_CHANNEL_IDS:
-        # 実行した人にだけ見える（他の人には見えない）メッセージで警告して終了
         await interaction.response.send_message(
             "⚠️ このチャンネルでは `/m` コマンドの使用が禁止されています。", 
             ephemeral=True
