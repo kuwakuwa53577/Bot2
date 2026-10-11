@@ -25,12 +25,12 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # 🚨【設定項目①】コマンドを禁止したい「チャンネルID」
 IGNORE_CHANNEL_IDS = [
-    1555585863402913922  # 禁止したいチャンネルのID（なければそのままでOK）
+    1555585863402913922  # 禁止したいチャンネルのID
 ]
 
 # 🚨【設定項目②】コマンドを禁止したい「サーバーID」
 IGNORE_GUILD_IDS = [
-    1555584934951915706  # ← ここに無効化したいサーバーのIDを貼り付けてください
+    1555584934951915706  # 無効化したいサーバーのID
 ]
 
 @bot.event
@@ -59,7 +59,7 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
 @app_commands.describe(text="投票のタイトルや画像と一緒に送るメッセージ")
 async def send_m(interaction: discord.Interaction, text: str = "さーもん万歳！"):
     
-    # 💡 ⚙️ 実行された「サーバー」がブラックリストに入っているかチェック
+    # ⚙️ サーバーブラックリストチェック
     if interaction.guild_id in IGNORE_GUILD_IDS:
         await interaction.response.send_message(
             "⚠️ このサーバーでは `/m` コマンドの使用が禁止されています。", 
@@ -67,7 +67,7 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
         )
         return
 
-    # 💡 実行された「チャンネル」がブラックリストに入っているかチェック
+    # ⚙️ チャンネルブラックリストチェック
     if interaction.channel_id in IGNORE_CHANNEL_IDS:
         await interaction.response.send_message(
             "⚠️ このチャンネルでは `/m` コマンドの使用が禁止されています。", 
@@ -84,13 +84,18 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
+    # あなたが追加してくれたお気に入りの画像リスト
     image_files = ["acc4d0a0.gif", "a62e0a5b.gif", "IMG_3948.png", "DSC_9262.png", "20260913_162130.png", "PXL_20261004_095516_336.png"]
+    
+    # Render内に実際に存在するファイルだけをあらかじめ絞り込む
     existing_files = [f for f in image_files if os.path.exists(f)]
 
     target_count = 5 
 
     for i in range(target_count):
         try:
+            # 💡 ループのたびに新しく discord.File オブジェクトを生成し直す（重要）
+            # これにより、5回とも安定して全画像が送信されます
             files_obj = [discord.File(f) for f in existing_files] if existing_files else []
             
             if files_obj:
@@ -98,7 +103,8 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
             else:
                 await interaction.followup.send(content=heavy_content, allowed_mentions=mention_setting)
             
-            await asyncio.sleep(0.8)
+            # 画像が6枚と多いため、Discordに負荷をかけないよう待機時間を少し長め（1.2秒）に調整
+            await asyncio.sleep(1.2)
 
         except Exception as e:
             print(f"爆撃送信エラー (ループ {i+1}回目): {e}")
