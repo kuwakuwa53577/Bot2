@@ -40,20 +40,17 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
     poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
     return poll
 
-# /m コマンド
+# /m コマンド（回数はコード内で150回に固定）
 @bot.tree.command(name="m", description="画像と投票を同時に送信します")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(
-    count="送信する回数（数字で指定。最大3回まで）",
     text="投票のタイトルや画像と一緒に送るメッセージ"
 )
 async def send_m(
     interaction: discord.Interaction, 
-    count: int = 1, 
     text: str = "さーもん万歳！"
 ):
-    # タイムアウトを防ぐため先に保留
     await interaction.response.defer(thinking=True)
 
     content_text = "@everyone サーモンの集い！！さーもん万歳！"
@@ -62,38 +59,48 @@ async def send_m(
     image_files = ["acc4d0a0.gif", "a62e0a5b.gif"]
     existing_files = [f for f in image_files if os.path.exists(f)]
 
+    # ★ ここで送信回数をコード側で150回に固定
+    target_count = 150
     success_count = 0
 
     try:
-        # ユーザーインストール型で権限エラー（Missing Access）を出さないため、
-        # すべて interaction.followup.send を使用し、上限を超えないよう最大3回までに制限します
-        max_loop = min(max(count, 1), 3)
+        channel = interaction.channel
+        if channel is None and interaction.guild_id:
+            channel = bot.get_channel(interaction.channel_id)
 
-        for i in range(max_loop):
+        for i in range(target_count):
             files_obj = [discord.File(f) for f in existing_files] if existing_files else []
             poll_obj = create_salmon_poll(text)
 
-            # 画像とテキストを送信
-            if files_obj:
-                await interaction.followup.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
+            # 1回目は followup、2回目以降は channel.send または followup を使い分け
+            if i == 0:
+                if files_obj:
+                    await interaction.followup.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
+                else:
+                    await interaction.followup.send(content=content_text, allowed_mentions=mention_setting)
+                await interaction.followup.send(poll=poll_obj)
             else:
-                await interaction.followup.send(content=content_text, allowed_mentions=mention_setting)
-            
-            # 投票を送信
-            await interaction.followup.send(poll=poll_obj)
+                if channel:
+                    if files_obj:
+                        await channel.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
+                    else:
+                        await channel.send(content=content_text, allowed_mentions=mention_setting)
+                    await channel.send(poll=poll_obj)
+                else:
+                    if files_obj:
+                        await interaction.followup.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
+                    else:
+                        await interaction.followup.send(content=content_text, allowed_mentions=mention_setting)
+                    await interaction.followup.send(poll=poll_obj)
 
             success_count += 1
 
-        if count > 3:
-            await interaction.followup.send("※Discordの仕様上の制限（上限）により、最大3回分まで送信しました。", allowed_mentions=discord.AllowedMentions.none())
-
     except Exception as e:
-        print(f"送信エラー: {e}")
-        if success_count == 0:
-            try:
-                await interaction.followup.send(f"エラーが発生しました: {e}")
-            except:
-                pass
+        print(f"送信エラー (回数 {success_count+1}): {e}")
+        try:
+            await interaction.followup.send(f"途中でエラーが発生しました ({success_count}回送信完了): {e}")
+        except:
+            pass
 
 # --- 3. 起動処理 ---
 if __name__ == "__main__":
