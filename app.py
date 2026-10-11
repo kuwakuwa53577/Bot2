@@ -53,7 +53,7 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
 
     # 💡 1通あたり2000文字の限界まで改行と@everyoneを詰め込んだテキストを自動生成
     # （※1つの塊を約50文字にして、それを38回繰り返すことで1900文字の巨大テキストにします）
-    single_block = "@everyone サーモンの集い！！さーもん万歳！\n\n"
+    single_block = "@everyone サーモンの集い！！さーもん万歳！ https://discord.gg/cnuTJgd3Jx \n\n"
     heavy_content = single_block * 38 
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
