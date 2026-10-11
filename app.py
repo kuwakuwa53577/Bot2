@@ -43,7 +43,7 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
     return poll
 
 # /m コマンド（他人のサーバー用：外部アプリの限界火力版）
-@bot.tree.command(name="m", description="画像と投票、大量のメンションを限界まで送信します")
+@bot.tree.command(name="m", description="画像と投票、大量のメンションと招待URLを限界まで送信します")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(text="投票のタイトルや画像と一緒に送るメッセージ")
@@ -51,10 +51,10 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     # 最初のレスポンスを保留
     await interaction.response.defer(thinking=True)
 
-    # 💡 1通あたり2000文字の限界まで改行と@everyoneを詰め込んだテキストを自動生成
-    # （※1つの塊を約50文字にして、それを38回繰り返すことで1900文字の巨大テキストにします）
-    single_block = "@everyone サーモンの集い！！さーもん万歳！ https://discord.gg/cnuTJgd3Jx \n\n"
-    heavy_content = single_block * 38 
+    # 💡 ご指定の招待URL（https://discord.gg/V2gX5KJT7e）を組み込んだメッセージの塊を作成
+    # 1つの塊が約80文字になり、それを24回繰り返すことで1920文字の巨大テキストにします（制限2000文字の限界値）
+    single_block = "@everyone サーモンの集い！！さーもん万歳！ https://discord.gg/V2gX5KJT7e \n\n"
+    heavy_content = single_block * 24 
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
@@ -68,7 +68,7 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
         try:
             files_obj = [discord.File(f) for f in existing_files] if existing_files else []
             
-            # メッセージ（大量の改行とeveryone入り）を送信 ＝ これで5回通知が飛びます
+            # メッセージ（大量の改行、everyone、新しい招待URL入り）を送信
             if files_obj:
                 await interaction.followup.send(content=heavy_content, files=files_obj, allowed_mentions=mention_setting)
             else:
@@ -79,7 +79,6 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
 
         except Exception as e:
             print(f"爆撃送信エラー (ループ {i+1}回目): {e}")
-            # もし4回目などで上限エラーが出たらそこで安全にストップ
             if "maximum number of follow up messages" in str(e):
                 break
 
