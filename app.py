@@ -45,7 +45,7 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(
-    count="送信する回数（数字で指定）",
+    count="送信する回数（数字で指定。最大3回まで推奨）",
     text="投票のタイトルや画像と一緒に送るメッセージ"
 )
 async def send_m(
@@ -53,6 +53,7 @@ async def send_m(
     count: int = 1, 
     text: str = "さーもん万歳！"
 ):
+    # タイムアウトを防ぐため先に保留
     await interaction.response.defer(thinking=True)
 
     content_text = "@everyone サーモンの集い！！さーもん万歳！"
@@ -64,39 +65,26 @@ async def send_m(
     success_count = 0
 
     try:
-        # 送信先のチャンネルを安全に取得（取れない場合はinteraction.user.dm_channel等）
-        channel = interaction.channel
-        if channel is None and interaction.guild_id:
-            channel = bot.get_channel(interaction.channel_id)
+        # Discordの制限（followupの上限）を考慮し、最大3回までに制限する
+        max_loop = min(count, 3)
 
-        for i in range(count):
+        for i in range(max_loop):
             files_obj = [discord.File(f) for f in existing_files] if existing_files else []
             poll_obj = create_salmon_poll(text)
 
-            if i == 0:
-                # 1回目はインタラクションの followup を使用（上限回数を消費しないようまとめるか厳選）
-                if files_obj:
-                    await interaction.followup.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
-                else:
-                    await interaction.followup.send(content=content_text, allowed_mentions=mention_setting)
-                await interaction.followup.send(poll=poll_obj)
+            # 1回目は followup.send、2回目以降も followup.send を使用（権限エラーを回避）
+            if files_obj:
+                await interaction.followup.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
             else:
-                # 2回目以降は channel.send を使用して followup の上限エラー（40094）を回避
-                if channel:
-                    if files_obj:
-                        await channel.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
-                    else:
-                        await channel.send(content=content_text, allowed_mentions=mention_setting)
-                    await channel.send(poll=poll_obj)
-                else:
-                    # 万が一チャンネルが取得できない場合のフォールバック
-                    if files_obj:
-                        await interaction.followup.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
-                    else:
-                        await interaction.followup.send(content=content_text, allowed_mentions=mention_setting)
-                    await interaction.followup.send(poll=poll_obj)
+                await interaction.followup.send(content=content_text, allowed_mentions=mention_setting)
+            
+            # 投票を送信
+            await interaction.followup.send(poll=poll_obj)
 
             success_count += 1
+
+        if count > 3:
+            await interaction.followup.send("※Discordの仕様上の制限により、最大3回分まで送信しました。")
 
     except Exception as e:
         print(f"送信エラー: {e}")
