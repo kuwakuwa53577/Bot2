@@ -55,7 +55,7 @@ async def send_m(
 ):
     await interaction.response.defer(thinking=True)
 
-    content_text = "サーモンの集い！！さーもん万歳！"
+    content_text = "@everyone サーモンの集い！！さーもん万歳！"
 
     image_files = ["acc4d0a0.gif", "a62e0a5b.gif"]
     existing_files = [f for f in image_files if os.path.exists(f)]
