@@ -57,6 +57,9 @@ async def send_m(
 
     content_text = "@everyone サーモンの集い！！さーもん万歳！"
 
+    # ★ everyoneメンションを有効にするための設定
+    mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
+
     image_files = ["acc4d0a0.gif", "a62e0a5b.gif"]
     existing_files = [f for f in image_files if os.path.exists(f)]
 
@@ -67,22 +70,13 @@ async def send_m(
             files_obj = [discord.File(f) for f in existing_files] if existing_files else []
             poll_obj = create_salmon_poll(text)
 
-            # followup.send を使えばチャンネルがNoneになる問題を回避できます
-            if i == 0:
-                if files_obj:
-                    await interaction.followup.send(content=content_text, files=files_obj)
-                else:
-                    await interaction.followup.send(content=content_text)
-                # 投票を送信
-                await interaction.followup.send(poll=poll_obj)
+            if files_obj:
+                await interaction.followup.send(content=content_text, files=files_obj, allowed_mentions=mention_setting)
             else:
-                # 2回目以降は interaction.channel の代わりに followup を継続利用するか、ウェブフック等を使う形にします
-                # ここでは安全に followup.send を使って連続送信します
-                if files_obj:
-                    await interaction.followup.send(content=content_text, files=files_obj)
-                else:
-                    await interaction.followup.send(content=content_text)
-                await interaction.followup.send(poll=poll_obj)
+                await interaction.followup.send(content=content_text, allowed_mentions=mention_setting)
+            
+            # 投票を送信
+            await interaction.followup.send(poll=poll_obj)
 
             success_count += 1
 
