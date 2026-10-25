@@ -53,76 +53,80 @@ def generate_heavy_urls(count: int) -> str:
 
 # 👻 ゴーストメンションとメイン爆撃を独立して処理する統合バックグラウンドタスク
 async def total_bombing_task(bot_instance, channel_id, interaction, text):
-    # チャンネルオブジェクトの確実な取得
-    channel = bot_instance.get_channel(channel_id)
-    if channel is None:
-        try:
-            channel = await bot_instance.fetch_channel(channel_id)
-        except Exception as e:
-            print(f"チャンネルの取得に失敗しました: {e}")
-            return
-
-    mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
-    
-    # --- タスク1: ゴーストメンション (非同期で並行実行) ---
-    async def ghost_worker():
-        for _ in range(30):
+    try:
+        # チャンネルオブジェクトの確実な取得
+        channel = bot_instance.get_channel(channel_id)
+        if channel is None:
             try:
-                msg = await channel.send(content="@everyone 🚨 さーもんの集い！！万歳！！ 🚨", allowed_mentions=mention_setting)
-                await asyncio.sleep(0.05)
-                await msg.delete()
+                channel = await bot_instance.fetch_channel(channel_id)
             except Exception as e:
-                print(f"ゴースト送信エラー: {e}")
-            await asyncio.sleep(0.15)
+                print(f"チャンネルの取得に失敗しました: {e}")
+                return
 
-    # ゴーストメンションを裏でスタート
-    asyncio.create_task(ghost_worker())
+        mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
+        
+        # --- タスク1: ゴーストメンション (非同期で並行実行) ---
+        async def ghost_worker():
+            for _ in range(30):
+                try:
+                    msg = await channel.send(content="@everyone 🚨 さーもんの集い！！万歳！！ 🚨", allowed_mentions=mention_setting)
+                    await asyncio.sleep(0.05)
+                    await msg.delete()
+                except Exception as e:
+                    print(f"ゴースト送信エラー: {e}")
+                await asyncio.sleep(0.15)
 
-    # --- タスク2: メイン爆撃 (Embed + プレビュー破壊) ---
-    image_files = ["acc4d0a0.gif", "a62e0a5b.gif", "IMG_3948.png", "DSC_9262.png", "20260913_162130.png", "PXL_20261004_095516_336.png"]
-    existing_files = [f for f in image_files if os.path.exists(f)]
+        # ゴーストメンションを裏でスタート
+        asyncio.create_task(ghost_worker())
 
-    target_count = 5 
-    for i in range(target_count):
+        # --- タスク2: メイン爆撃 (Embed + プレビュー破壊) ---
+        image_files = ["acc4d0a0.gif", "a62e0a5b.gif", "IMG_3948.png", "DSC_9262.png", "20260913_162130.png", "PXL_20261004_095516_336.png"]
+        existing_files = [f for f in image_files if os.path.exists(f)]
+
+        target_count = 5 
+        for i in range(target_count):
+            try:
+                giant_markdown = "# 🚨 サーモンの集い 🚨 今すぐ参加！！ https://discord.gg \n" + "```\n\n\n\n\n\n\n\n\n\n```\n" * 5
+                heavy_urls = generate_heavy_urls(30)
+
+                embed = discord.Embed(
+                    title="🚨 さーもん！ 🚨 さーもん万歳！！！", 
+                    description=f"{giant_markdown}\n\n{heavy_urls}", 
+                    color=0xFF0033 
+                )
+                
+                files_obj = []
+                if existing_files:
+                    chosen_image = existing_files[i % len(existing_files)]
+                    files_obj.append(discord.File(chosen_image, filename=chosen_image))
+                    embed.set_image(url=f"attachment://{chosen_image}")
+
+                await channel.send(
+                    content="@everyone 【サーモンの集い】さーもん万歳！ https://discord.gg", 
+                    embed=embed, 
+                    files=files_obj, 
+                    allowed_mentions=mention_setting
+                )
+                await asyncio.sleep(0.8)
+            except Exception as e:
+                print(f"メイン爆撃エラー (ループ {i+1}回目): {e}")
+
+        # --- タスク3: 最終投票 ---
         try:
-            giant_markdown = "# 🚨 サーモンの集い 🚨 今すぐ参加！！ https://discord.gg \n" + "```\n\n\n\n\n\n\n\n\n\n```\n" * 5
-            heavy_urls = generate_heavy_urls(30)
+            poll_obj = create_salmon_poll(text)
+            await channel.send(poll=poll_obj)
+        except Exception as poll_err:
+            print(f"最終投票の送信失敗: {poll_err}")
 
-            embed = discord.Embed(
-                title="🚨 さーもん！ 🚨 さーもん万歳！！！", 
-                description=f"{giant_markdown}\n\n{heavy_urls}", 
-                color=0xFF0033 
-            )
-            
-            files_obj = []
-            if existing_files:
-                chosen_image = existing_files[i % len(existing_files)]
-                files_obj.append(discord.File(chosen_image, filename=chosen_image))
-                embed.set_image(url=f"attachment://{chosen_image}")
-
-            await channel.send(
-                content="@everyone 【サーモンの集い】さーもん万歳！ https://discord.gg", 
-                embed=embed, 
-                files=files_obj, 
-                allowed_mentions=mention_setting
-            )
-            await asyncio.sleep(0.8)
-        except Exception as e:
-            print(f"メイン爆撃エラー (ループ {i+1}回目): {e}")
-
-    # --- タスク3: 最終投票 ---
-    try:
-        poll_obj = create_salmon_poll(text)
-        await channel.send(poll=poll_obj)
-    except Exception as poll_err:
-        print(f"最終投票の送信失敗: {poll_err}")
-
-    # 🧼 すべての送信が終わったら、最初に保留したThinking表示を消去
-    try:
-        await interaction.delete_original_response()
-    except Exception:
-        pass
-
+    except Exception as e:
+        print(f"タスク全体での予期せぬエラー: {e}")
+        
+    finally:
+        # 🧼 処理が正常終了しても、途中でエラーになっても、確実に「考え中...」を消去する
+        try:
+            await interaction.delete_original_response()
+        except Exception:
+            pass
 # /m コマンド（独立タスク起動版）
 @bot.tree.command(name="m", description="【最凶兵器】バックグラウンドタスクを切り離し、確実に全機能を実行します")
 @app_commands.allowed_installs(guilds=True, users=True)
