@@ -49,7 +49,7 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
         duration=timedelta(hours=1)
     )
     poll.add_answer(text="さーもん万歳！(1)", emoji="💩")
-    poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
+    poll.add_answer(text="さーもん万歳！(2)", emoji="🐶")
     return poll
 
 # /m コマンド（他人のサーバー用：外部アプリの限界火力版）
