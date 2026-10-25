@@ -62,7 +62,7 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     await interaction.response.defer(thinking=True)
 
     # 📝 1ブロックの文字列定義
-    single_block = "サーモン万歳！いますぐさーもんの集いに参加！ https://discord.gg/efe5fsS2JA @everyone \n\n"
+    single_block = "さーもん万歳！いますぐさーもんの集いに参加！ https://discord.gg/efe5fsS2JA @everyone \n\n"
     
     # 💡 Discordの最大仕様（2000文字）を超えないように安全にテキストを構築するロジック
     heavy_content = ""
@@ -77,7 +77,7 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     existing_files = [f for f in image_files if os.path.exists(f)]
 
     # フォローアップ制限上限に合わせたカウント（最大5回枠のうちテキスト用に4回消費）
-    target_count = 114514
+    target_count = 4
 
     for i in range(target_count):
         try:
