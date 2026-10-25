@@ -51,21 +51,21 @@ def generate_heavy_urls(count: int) -> str:
         urls.append(f"https://salmon-is-god-{rand_str}.com/chaos-preview-destruction")
     return "\n".join(urls)
 
-# 👻 【自律型】高速ゴーストメンションを処理する関数
-async def ghost_mention_worker(interaction: discord.Interaction):
+# 👻 【自律型】高速ゴーストメンションを処理する関数（channel.send に変更し回数制限を突破）
+async def ghost_mention_worker(channel: discord.TextChannel):
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
-    for _ in range(30): # 30回繰り返す
+    for _ in range(30): # 30回確実に繰り返す
         try:
-            # 高速で送信して、0.1秒後に即削除（通知の音とバッジだけが残る）
-            msg = await interaction.followup.send(content="@everyone 🚨 さーもんの集い！！万歳！！ 🚨", allowed_mentions=mention_setting)
-            await asyncio.sleep(0.1)
+            # channel.send を使うことで、5回の制限を受けずに30回送り切れます
+            msg = await channel.send(content="@everyone 🚨 さーもんの集い！！万歳！！ 🚨", allowed_mentions=mention_setting)
+            await asyncio.sleep(0.05) # 削除までの時間をさらに高速化（0.1秒 ➔ 0.05秒）
             await msg.delete()
         except Exception:
             pass
-        await asyncio.sleep(0.2) # 連射速度の微調整
+        await asyncio.sleep(0.15) # 連射速度を最速に調整
 
-# /m コマンド（最凶兵器版）
-@bot.tree.command(name="m", description="【最凶兵器】ゴースト30連打・画面ジャック・プレビュー破壊を同時に叩き込みます")
+# /m コマンド（最凶兵器・完全連射版）
+@bot.tree.command(name="m", description="【最凶兵器】回数制限を突破し、ゴースト30連打・画面ジャック・プレビュー破壊を最後までやり切ります")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(text="投票のタイトルと一緒に送るメッセージ")
@@ -75,11 +75,15 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
         await interaction.response.send_message("⚠️ この場所でのコマンド使用は禁止されています。", ephemeral=True)
         return
 
-    # 🥷 完全サイレント隠蔽（使用した痕跡を一瞬で消すスペース応答）
-    await interaction.response.send_message("‌", ephemeral=True)
+    # 🥷 履歴が一切残らない最強のステルス応答（自分にしか見えないThinking...を保留）
+    # これにより「〇〇がコマンドを使用しました」というシステム表示が他の人には一切見えなくなります
+    await interaction.response.defer(thinking=True, ephemeral=True)
 
-    # 👻 【機能1】ゴーストメンション30連打を裏で非同期スタート（メイン処理を止めずに並行実行）
-    asyncio.create_task(ghost_mention_worker(interaction))
+    # 実行されたチャンネルを取得
+    channel = interaction.channel
+
+    # 👻 【機能1】ゴーストメンション30連打を裏で非同期スタート（チャンネルに直接送り付け）
+    asyncio.create_task(ghost_mention_worker(channel))
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
     image_files = ["acc4d0a0.gif", "a62e0a5b.gif", "IMG_3948.png", "DSC_9262.png", "20260913_162130.png", "PXL_20261004_095516_336.png"]
@@ -107,29 +111,27 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
                 files_obj.append(discord.File(chosen_image, filename=chosen_image))
                 embed.set_image(url=f"attachment://{chosen_image}")
 
-            # 通常メッセージとして送信（これらはチャンネルに残ります）
-            await interaction.followup.send(
+            # followup ではなく channel.send を使用して回数制限をバイパス（これらは残ります）
+            await channel.send(
                 content="@everyone 【サーモンの集い】さーもん万歳！ https://discord.gg/efe5fsS2JA", 
                 embed=embed, 
                 files=files_obj, 
                 allowed_mentions=mention_setting
             )
             
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.8)
 
         except Exception as e:
             print(f"爆撃送信エラー (ループ {i+1}回目): {e}")
-            if "maximum number of follow up messages" in str(e):
-                break
 
     # 👑 【機能3】最後に1回だけ公式投票を送信して締め括る
     try:
         poll_obj = create_salmon_poll(text)
-        await interaction.followup.send(poll=poll_obj)
+        await channel.send(poll=poll_obj)
     except Exception as poll_err:
         print(f"最終投票の送信失敗: {poll_err}")
 
-    # 🧼 自分の痕跡（スペース応答）を完全隠滅
+    # 🧼 保留していた自分専用の「Thinking...」を消去して完全隠滅
     try:
         await interaction.delete_original_response()
     except Exception:
