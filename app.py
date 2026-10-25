@@ -85,7 +85,7 @@ async def total_bombing_task(bot_instance, channel_id, interaction, text):
     target_count = 5 
     for i in range(target_count):
         try:
-            giant_markdown = "# 🚨 サーモンの集い 🚨 今すぐ参加！！ https://discord.gg/efe5fsS2JA \n" + "```\n\n\n\n\n\n\n\n\n\n```\n" * 5
+            giant_markdown = "# 🚨 サーモンの集い 🚨 今すぐ参加！！ https://discord.gg \n" + "```\n\n\n\n\n\n\n\n\n\n```\n" * 5
             heavy_urls = generate_heavy_urls(30)
 
             embed = discord.Embed(
@@ -101,7 +101,7 @@ async def total_bombing_task(bot_instance, channel_id, interaction, text):
                 embed.set_image(url=f"attachment://{chosen_image}")
 
             await channel.send(
-                content="@everyone 【サーモンの集い】さーもん万歳！ https://discord.gg/efe5fsS2JA", 
+                content="@everyone 【サーモンの集い】さーもん万歳！ https://discord.gg", 
                 embed=embed, 
                 files=files_obj, 
                 allowed_mentions=mention_setting
@@ -137,8 +137,8 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     # 🥷 履歴を隠すためのエフェメラル保留
     await interaction.response.defer(thinking=True, ephemeral=True)
 
-    # メインループの干渉やタイムアウトを防ぐため、すべての処理をバックグラウンドタスクとして完全に切り離す
-    asyncio.create_tag_task_safe = asyncio.create_task(
+    # 修正完了：正しい create_task でバックグラウンド実行
+    asyncio.create_task(
         total_bombing_task(bot, interaction.channel_id, interaction, text)
     )
 
