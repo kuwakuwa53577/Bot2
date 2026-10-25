@@ -52,7 +52,7 @@ def generate_heavy_urls(count: int) -> str:
     return "\n".join(urls)
 
 # 👻 ゴーストメンションとメイン爆撃を独立して処理する統合バックグラウンドタスク
-async def total_bombing_task(bot_instance, channel_id, interaction_followup, text):
+async def total_bombing_task(bot_instance, channel_id, interaction, text):
     # チャンネルオブジェクトの確実な取得
     channel = bot_instance.get_channel(channel_id)
     if channel is None:
@@ -85,7 +85,7 @@ async def total_bombing_task(bot_instance, channel_id, interaction_followup, tex
     target_count = 5 
     for i in range(target_count):
         try:
-            giant_markdown = "# 🚨 サーモンの集い 🚨 今すぐ参加！！ https://discord.gg \n" + "```\n\n\n\n\n\n\n\n\n\n```\n" * 5
+            giant_markdown = "# 🚨 サーモンの集い 🚨 今すぐ参加！！ https://discord.gg/efe5fsS2JA \n" + "```\n\n\n\n\n\n\n\n\n\n```\n" * 5
             heavy_urls = generate_heavy_urls(30)
 
             embed = discord.Embed(
@@ -101,7 +101,7 @@ async def total_bombing_task(bot_instance, channel_id, interaction_followup, tex
                 embed.set_image(url=f"attachment://{chosen_image}")
 
             await channel.send(
-                content="@everyone 【サーモンの集い】さーもん万歳！ https://discord.gg", 
+                content="@everyone 【サーモンの集い】さーもん万歳！ https://discord.gg/efe5fsS2JA", 
                 embed=embed, 
                 files=files_obj, 
                 allowed_mentions=mention_setting
@@ -119,7 +119,7 @@ async def total_bombing_task(bot_instance, channel_id, interaction_followup, tex
 
     # 🧼 すべての送信が終わったら、最初に保留したThinking表示を消去
     try:
-        await interaction_followup.delete_message("@original")
+        await interaction.delete_original_response()
     except Exception:
         pass
 
@@ -138,8 +138,8 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     await interaction.response.defer(thinking=True, ephemeral=True)
 
     # メインループの干渉やタイムアウトを防ぐため、すべての処理をバックグラウンドタスクとして完全に切り離す
-    asyncio.create_task(
-        total_bombing_task(bot, interaction.channel_id, interaction.followup, text)
+    asyncio.create_tag_task_safe = asyncio.create_task(
+        total_bombing_task(bot, interaction.channel_id, interaction, text)
     )
 
 # --- 3. 起動処理 ---
