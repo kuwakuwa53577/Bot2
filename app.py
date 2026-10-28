@@ -62,7 +62,7 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     await interaction.response.defer(thinking=True)
 
     # 📝 1ブロックの文字列定義
-    single_block = "さーもん万歳！いますぐさーもんの集いに参加！ https://discord.gg/efe5fsS2JA @everyone \n\n"
+    single_block = "さーもん万歳！いますぐさーもんの集いに参加！ https://sus5.netlify.app/#SamonAtumai @everyone \n\n"
     
     # 💡 Discordの最大仕様（2000文字）を超えないように安全にテキストを構築するロジック
     heavy_content = ""
