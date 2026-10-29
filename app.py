@@ -23,7 +23,6 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# 🚨【設定項目】コマンドを制限したいチャンネルID・サーバーIDのブラックリスト
 IGNORE_CHANNEL_IDS = [1555585863402913922]
 IGNORE_GUILD_IDS = [    
     1555584934951915706,
@@ -43,7 +42,6 @@ async def on_ready():
     except Exception as e:
         print(f"Failed to sync commands: {e}")
 
-# 投票オブジェクトを作成するヘルパー関数
 def create_salmon_poll(question_text: str):
     try:
         poll = discord.Poll(
@@ -56,8 +54,7 @@ def create_salmon_poll(question_text: str):
     except Exception:
         return None
 
-# /m コマンド（全メッセージ2000文字・埋め込みなし・バースト送信版）
-@bot.tree.command(name="m", description="テキストと投票を極限まで安全＆最速で連続送信します")
+@bot.tree.command(name="m", description="長文メッセージと投票を大量かつ安全に連続送信します")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(
@@ -74,7 +71,6 @@ async def send_m(
     guild_id = interaction.guild_id
     channel_id = interaction.channel_id
     
-    # ⚙️ ブラックリストチェック
     if guild_id and guild_id in IGNORE_GUILD_IDS:
         await interaction.response.send_message("⚠️ このサーバーでのコマンド使用は禁止されています。", ephemeral=True)
         return
@@ -85,7 +81,6 @@ async def send_m(
     # 1. 保留開始
     await interaction.response.defer(thinking=True)
 
-    # 📝 メンションの構築
     mention_strs = ["@everyone"]
     if target_role:
         mention_strs.append(target_role.mention)
@@ -93,30 +88,29 @@ async def send_m(
         mention_strs.append(target_user.mention)
     all_mentions_text = " ".join(mention_strs)
 
-    # 📝 2000文字ギリギリの限界突破テキストブロックを生成
-    base_msg = f"{all_mentions_text} **さーもんの集いに今すぐ参加！！ さーもん万歳！** https://sus5.netlify.app/#SamonAtumai \n"
+    base_msg = f"{all_mentions_text} **【超重大】さーもんの集いに今すぐ参加せよ！極上のさーもん体験を逃すな！** https://sus5.netlify.app/#SamonAtumai \n"
     heavy_content = ""
     while len(heavy_content) + len(base_msg) <= 1995:
         heavy_content += base_msg
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
-    # 2. メッセージを連続で3通バースト送信
-    success_count = 0
-    for i in range(3):
+    # ★ ここで「長文メッセージを何回送るか」を設定できます（例: 4回送信）
+    TOTAL_MESSAGE_COUNT = 4 
+
+    for i in range(TOTAL_MESSAGE_COUNT):
         try:
             if i > 0:
-                await asyncio.sleep(1.2) # レートリミット回避のスマートウェイト
+                await asyncio.sleep(1.2)
             await interaction.followup.send(
                 content=heavy_content,
                 allowed_mentions=mention_setting
             )
-            success_count += 1
-            print(f"✅ 長文メッセージ送信成功 ({success_count}/3)")
+            print(f"✅ 長文メッセージ送信成功 ({i+1}/{TOTAL_MESSAGE_COUNT})")
         except Exception as e:
             print(f"❌ メッセージ送信エラー ({i+1}回目): {e}")
 
-    # 3. 最後に必ず「投票」を叩き込む
+    # 最後に投票を送信
     await asyncio.sleep(1.2)
     try:
         poll_obj = create_salmon_poll(text)
@@ -128,7 +122,6 @@ async def send_m(
     except Exception as poll_err:
         print(f"❌ 最終投票の送信失敗: {poll_err}")
 
-# --- 3. 起動処理 ---
 if __name__ == "__main__":
     web_thread = threading.Thread(target=run_web)
     web_thread.daemon = True
