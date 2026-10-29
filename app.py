@@ -23,9 +23,16 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# 🚨【設定項目】コマンドを制限したいID
-IGNORE_CHANNEL_IDS =
-IGNORE_GUILD_IDS =
+# 🚨【設定項目】コマンドを制限したいID（空の場合は [] にしておく）
+IGNORE_CHANNEL_IDS = [1555585863402913922]
+IGNORE_GUILD_IDS = [    
+    1555584934951915706,
+    1428227734248886284,
+    1216303889599565875,
+    1361334537174651001,
+    1313417956473966662,
+    1451937320684093605
+]
 
 @bot.event
 async def on_ready():
@@ -37,33 +44,39 @@ async def on_ready():
         print(f"Failed to sync commands: {e}")
 
 # 投票オブジェクトを作成するヘルパー関数
-def create_salmon_poll(question_text: str) -> discord.Poll:
-    poll = discord.Poll(
-        question=question_text,
-        duration=timedelta(hours=1)
-    )
-    poll.add_answer(text="さーもん万歳！(1)", emoji="💩")
-    poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
-    return poll
+def create_salmon_poll(question_text: str):
+    # discord.Poll は対応している Discord.py のバージョンが必要です
+    try:
+        poll = discord.Poll(
+            question=question_text,
+            duration=timedelta(hours=1)
+        )
+        poll.add_answer(text="さーもん万歳！(1)", emoji="💩")
+        poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
+        return poll
+    except Exception:
+        return None
 
-# /m コマンド（高負荷エラー完全排除版）
+# /m コマンド
 @bot.tree.command(name="m", description="テキスト、埋め込み、投票をフリーズなしで最速・安全に送信します")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(text="投票のタイトルと一緒に送るメッセージ")
 async def send_m(interaction: discord.Interaction, text: str = "さーもん万歳！"):
-    # ⚙️ ブラックリストチェック
-    if interaction.guild_id in IGNORE_GUILD_IDS or interaction.channel_id in IGNORE_CHANNEL_IDS:
+    # ⚙️ ブラックリストチェック（型を合わせるため int に変換して比較）
+    guild_id = interaction.guild_id
+    channel_id = interaction.channel_id
+    
+    if (guild_id and guild_id in IGNORE_GUILD_IDS) or (channel_id and channel_id in IGNORE_CHANNEL_IDS):
         await interaction.response.send_message("⚠️ この場所でのコマンド使用は禁止されています。", ephemeral=True)
         return
 
     # 1. 安全のために保留（考え中...を開始）
     await interaction.response.defer(thinking=True)
 
-    # 📝 通常テキスト用の1ブロック文字列定義（太字装飾つき）
+    # 📝 通常テキスト用の1ブロック文字列定義
     single_block = "**さーもん万歳！いますぐさーもんの集いに参加！** https://netlify.app @everyone \n\n"
     
-    # 💡 Discordの最大仕様（2000文字）を超えないように安全にテキストを構築
     heavy_content = ""
     while len(heavy_content) + len(single_block) < 1950:
         heavy_content += single_block
@@ -84,38 +97,39 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
-    # 2. 【超重要】保留直後に1通目を即座に送信（これで確実に『考え中...』が画面から消えます）
+    # 2. 保留直後に1通目を送信
     try:
         await interaction.followup.send(
             content=heavy_content,
             embed=embed,
             allowed_mentions=mention_setting
         )
-        print("✅ 1通目を送信完了（『考え中...』が消えました）")
+        print("✅ 1通目を送信完了")
     except Exception as e:
         print(f"❌ 1通目の送信に失敗: {e}")
         return
 
-    # 外部アプリのレートリミット（連投規制）をすり抜けるため、安全に2回追加送信（合計3通）
+    # 追加送信
     target_followups = 2
     for i in range(target_followups):
-        await asyncio.sleep(1.0) # 1秒の短いインターバル
+        await asyncio.sleep(1.0)
         try:
             await interaction.followup.send(
                 content=heavy_content, 
                 allowed_mentions=mention_setting
             )
             print(f"✅ 追加メッセージ送信完了 ({i+1}/{target_followups})")
-        except discord.errors.HTTPException as http_err:
-            print(f"❌ Discord APIエラー (追加 {i+1}回目): {http_err.text}")
         except Exception as e:
             print(f"❌ 送信エラー (追加 {i+1}回目): {e}")
 
-    # 3. 最後に「投票」を確実に送信して終了
+    # 3. 最後に投票（または予備メッセージ）を送信
     await asyncio.sleep(1.0)
     try:
         poll_obj = create_salmon_poll(text)
-        await interaction.followup.send(poll=poll_obj)
+        if poll_obj:
+            await interaction.followup.send(poll=poll_obj)
+        else:
+            await interaction.followup.send(f"📊 **投票:** {text}")
         print("✅ 最終投票の送信が完了しました！")
     except Exception as poll_err:
         print(f"❌ 最終投票の送信失敗: {poll_err}")
@@ -127,4 +141,6 @@ if __name__ == "__main__":
     web_thread.start()
 
     token = os.environ.get("DISCORD_TOKEN")
+    if not token:
+        print("❌ DISCORD_TOKEN が設定されていません！")
     bot.run(token)
