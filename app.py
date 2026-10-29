@@ -20,7 +20,7 @@ def run_web():
 
 # --- 2. Discord Botの設定 ---
 intents = discord.Intents.default()
-intents.message_content = True 
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # 🚨【設定項目】コマンドを制限したいID
@@ -33,6 +33,7 @@ IGNORE_GUILD_IDS = [
     1313417956473966662,
     1451937320684093605
 ]
+
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
@@ -52,13 +53,12 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
     poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
     return poll
 
-# /m コマンド（外部アプリ：2000文字最大化仕様版）
-@bot.tree.command(name="m", description="仕様上の限界である2000文字のテキスト、画像、投票を順番に送信します")
+# /m コマンド（外部アプリ：2000文字最大化＋埋め込み強化仕様版）
+@bot.tree.command(name="m", description="仕様上の限界である2000文字のテキスト、埋め込み、画像、投票を順番に送信します")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(text="投票のタイトルと一緒に送るメッセージ")
 async def send_m(interaction: discord.Interaction, text: str = "さーもん万歳！"):
-    
     # ⚙️ ブラックリストチェック
     if interaction.guild_id in IGNORE_GUILD_IDS or interaction.channel_id in IGNORE_CHANNEL_IDS:
         await interaction.response.send_message("⚠️ この場所でのコマンド使用は禁止されています。", ephemeral=True)
@@ -67,14 +67,29 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     # 最初のレスポンスを保留
     await interaction.response.defer(thinking=True)
 
-    # 📝 1ブロックの文字列定義
-    single_block = "さーもん万歳！いますぐさーもんの集いに参加！ https://sus5.netlify.app/#SamonAtumai @everyone \n\n"
+    # 📝 通常テキスト用の1ブロック文字列定義（太字装飾つき）
+    single_block = "**さーもん万歳！いますぐさーもんの集いに参加！** https://sus5.netlify.app/#SamonAtumai @everyone \n\n"
     
     # 💡 Discordの最大仕様（2000文字）を超えないように安全にテキストを構築するロジック
     heavy_content = ""
-    # 安全マージン（ファイル名や内部データ用）として1950文字をターゲットに結合
+    # 安全マージンとして1950文字をターゲットに結合
     while len(heavy_content) + len(single_block) < 1950:
         heavy_content += single_block
+
+    # 📈 埋め込み（Embed）を構築してさらにメッセージを長くする
+    embed_block = "**さーもんの集いはあなたを歓迎します！**\n極上のさーもん体験を今すぐここで。逃す手はありません！\n\n"
+    embed_description = ""
+    # 埋め込みの説明文の上限（4000文字）に余裕を持って3500文字程度まで詰め込む
+    while len(embed_description) + len(embed_block) < 3500:
+        embed_description += embed_block
+
+    embed = discord.Embed(
+        title="🐟 【超重大】 さーもん万歳通知 🐟",
+        description=embed_description,
+        color=discord.Color.from_rgb(255, 111, 97) # サーモンピンク
+    )
+    embed.set_author(name="さーもん公式プロモーター")
+    embed.set_footer(text="さーもんの集い © 2026")
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
@@ -84,21 +99,29 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
 
     # フォローアップ制限上限に合わせたカウント（最大5回枠のうちテキスト用に4回消費）
     target_count = 4
-
     for i in range(target_count):
         try:
             # ループのたびに新しくFileオブジェクトを定義
             files_obj = [discord.File(f) for f in existing_files] if existing_files else []
             
-            # 2000文字上限を遵守したテキストデータと画像を送信
+            # 2000文字テキスト ＋ 大容量埋め込み ＋ 画像をすべて同時に送信
             if files_obj:
-                await interaction.followup.send(content=heavy_content, files=files_obj, allowed_mentions=mention_setting)
+                await interaction.followup.send(
+                    content=heavy_content, 
+                    embed=embed, 
+                    files=files_obj, 
+                    allowed_mentions=mention_setting
+                )
             else:
-                await interaction.followup.send(content=heavy_content, allowed_mentions=mention_setting)
+                await interaction.followup.send(
+                    content=heavy_content, 
+                    embed=embed, 
+                    allowed_mentions=mention_setting
+                )
             
             # APIの負荷制限（429エラー）を回避するための適切なインターバル（1.5秒）
             await asyncio.sleep(1.5)
-
+            
         except discord.errors.HTTPException as http_err:
             print(f"Discord API 制限超過により停止 (ループ {i+1}回目): {http_err}")
             break
