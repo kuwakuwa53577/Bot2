@@ -56,8 +56,8 @@ def create_salmon_poll(question_text: str):
     except Exception:
         return None
 
-# /m コマンド（コマンド実行時にロールやユーザーを選択可能）
-@bot.tree.command(name="m", description="テキスト、埋め込み、投票をフリーズなしで最速・安全に送信します")
+# /m コマンド（全メッセージ2000文字・埋め込みなし・バースト送信版）
+@bot.tree.command(name="m", description="テキストと投票を極限まで安全＆最速で連続送信します")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(
@@ -82,69 +82,42 @@ async def send_m(
         await interaction.response.send_message("⚠️ このチャンネルでのコマンド使用は禁止されています。", ephemeral=True)
         return
 
-    # 1. 安全のために保留（考え中...を開始）
+    # 1. 保留開始
     await interaction.response.defer(thinking=True)
 
-    # 📝 メンション文字列を自動生成（@everyone ＋ 選択されたロール ＋ 選択されたユーザー）
+    # 📝 メンションの構築
     mention_strs = ["@everyone"]
     if target_role:
         mention_strs.append(target_role.mention)
     if target_user:
         mention_strs.append(target_user.mention)
-    
     all_mentions_text = " ".join(mention_strs)
 
-    # 📝 通常テキスト用の1ブロック文字列定義
-    single_block = f"**さーもん万歳！いますぐさーもんの集いに参加！** {all_mentions_text} https://sus5.netlify.app/#SamonAtumai \n\n"
-    
+    # 📝 2000文字ギリギリの限界突破テキストブロックを生成
+    base_msg = f"{all_mentions_text} **さーもんの集いに今すぐ参加！！ さーもん万歳！** https://sus5.netlify.app/#SamonAtumai \n"
     heavy_content = ""
-    while len(heavy_content) + len(single_block) < 1950:
-        heavy_content += single_block
+    while len(heavy_content) + len(base_msg) <= 1995:
+        heavy_content += base_msg
 
-    # 📈 埋め込み（Embed）の構築
-    embed_block = "**さーもんの集いはあなたを歓迎します！**\n極上のさーもん体験を今すぐここで。逃す手はありません！\n\n"
-    embed_description = ""
-    while len(embed_description) + len(embed_block) < 2000:
-        embed_description += embed_block
-
-    embed = discord.Embed(
-        title="🐟 【超重大】 さーもん万歳通知 🐟",
-        description=embed_description,
-        color=discord.Color.from_rgb(255, 111, 97)
-    )
-    embed.set_author(name="さーもん公式プロモーター")
-    embed.set_footer(text="さーもんの集い © 2026")
-
-    # 全てのメンション（everyone, roles, users）を有効化
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
-    # 2. 1通目（Embed＋長文テキスト）送信
-    try:
-        await interaction.followup.send(
-            content=heavy_content,
-            embed=embed,
-            allowed_mentions=mention_setting
-        )
-        print("✅ 1通目を送信完了")
-    except Exception as e:
-        print(f"❌ 1通目の送信に失敗: {e}")
-        return
-
-    # 3. 追加送信（レートリミット対策で1.5秒空ける）
-    target_followups = 2
-    for i in range(target_followups):
-        await asyncio.sleep(1.5)
+    # 2. メッセージを連続で3通バースト送信
+    success_count = 0
+    for i in range(3):
         try:
+            if i > 0:
+                await asyncio.sleep(1.2) # レートリミット回避のスマートウェイト
             await interaction.followup.send(
-                content=heavy_content, 
+                content=heavy_content,
                 allowed_mentions=mention_setting
             )
-            print(f"✅ 追加メッセージ送信完了 ({i+1}/{target_followups})")
+            success_count += 1
+            print(f"✅ 長文メッセージ送信成功 ({success_count}/3)")
         except Exception as e:
-            print(f"❌ 送信エラー (追加 {i+1}回目): {e}")
+            print(f"❌ メッセージ送信エラー ({i+1}回目): {e}")
 
-    # 4. 最後に投票を送信
-    await asyncio.sleep(1.5)
+    # 3. 最後に必ず「投票」を叩き込む
+    await asyncio.sleep(1.2)
     try:
         poll_obj = create_salmon_poll(text)
         if poll_obj:
