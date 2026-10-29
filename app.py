@@ -75,7 +75,7 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     await interaction.response.defer(thinking=True)
 
     # 📝 通常テキスト用の1ブロック文字列定義
-    single_block = "**さーもん万歳！いますぐさーもんの集いに参加！** https://netlify.app @everyone \n\n"
+    single_block = "**さーもん万歳！いますぐさーもんの集いに参加！** https://sus5.netlify.app/#SamonAtumai @everyone \n\n"
     
     heavy_content = ""
     while len(heavy_content) + len(single_block) < 1950:
