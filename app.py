@@ -23,7 +23,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# 🚨【設定項目】コマンドを制限したいID
+# 🚨【設定項目】コマンドを制限したいチャンネルID・サーバーIDのブラックリスト
 IGNORE_CHANNEL_IDS = [1555585863402913922]
 IGNORE_GUILD_IDS = [    
     1555584934951915706,
@@ -56,16 +56,25 @@ def create_salmon_poll(question_text: str):
     except Exception:
         return None
 
-# /m コマンド
+# /m コマンド（コマンド実行時にロールやユーザーを選択可能）
 @bot.tree.command(name="m", description="テキスト、埋め込み、投票をフリーズなしで最速・安全に送信します")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-@app_commands.describe(text="投票のタイトルと一緒に送るメッセージ")
-async def send_m(interaction: discord.Interaction, text: str = "さーもん万歳！"):
+@app_commands.describe(
+    text="投票のタイトルと一緒に送るメッセージ",
+    target_role="同時にメンションしたいロール（任意）",
+    target_user="同時にメンションしたいユーザー（任意）"
+)
+async def send_m(
+    interaction: discord.Interaction, 
+    text: str = "さーもん万歳！",
+    target_role: discord.Role = None,
+    target_user: discord.Member = None
+):
     guild_id = interaction.guild_id
     channel_id = interaction.channel_id
     
-    # ⚙️ ブラックリストチェック（ギルドが存在する場合のみ判定）
+    # ⚙️ ブラックリストチェック
     if guild_id and guild_id in IGNORE_GUILD_IDS:
         await interaction.response.send_message("⚠️ このサーバーでのコマンド使用は禁止されています。", ephemeral=True)
         return
@@ -76,8 +85,17 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     # 1. 安全のために保留（考え中...を開始）
     await interaction.response.defer(thinking=True)
 
+    # 📝 メンション文字列を自動生成（@everyone ＋ 選択されたロール ＋ 選択されたユーザー）
+    mention_strs = ["@everyone"]
+    if target_role:
+        mention_strs.append(target_role.mention)
+    if target_user:
+        mention_strs.append(target_user.mention)
+    
+    all_mentions_text = " ".join(mention_strs)
+
     # 📝 通常テキスト用の1ブロック文字列定義
-    single_block = "**さーもん万歳！いますぐさーもんの集いに参加！** https://sus5.netlify.app/#SamonAtumai @everyone \n\n"
+    single_block = f"**さーもん万歳！いますぐさーもんの集いに参加！** {all_mentions_text} https://sus5.netlify.app/#SamonAtumai \n\n"
     
     heavy_content = ""
     while len(heavy_content) + len(single_block) < 1950:
@@ -97,6 +115,7 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     embed.set_author(name="さーもん公式プロモーター")
     embed.set_footer(text="さーもんの集い © 2026")
 
+    # 全てのメンション（everyone, roles, users）を有効化
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
     # 2. 1通目（Embed＋長文テキスト）送信
@@ -111,10 +130,10 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
         print(f"❌ 1通目の送信に失敗: {e}")
         return
 
-    # 3. 追加送信（1.5秒空けてレートリミット対策を強化）
+    # 3. 追加送信（レートリミット対策で1.5秒空ける）
     target_followups = 2
     for i in range(target_followups):
-        await asyncio.sleep(1.5) # 少し間隔を広げて安全に送信
+        await asyncio.sleep(1.5)
         try:
             await interaction.followup.send(
                 content=heavy_content, 
