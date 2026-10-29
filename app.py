@@ -23,7 +23,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# 🚨【設定項目】コマンドを制限したいID（空の場合は [] にしておく）
+# 🚨【設定項目】コマンドを制限したいID
 IGNORE_CHANNEL_IDS = [1555585863402913922]
 IGNORE_GUILD_IDS = [    
     1555584934951915706,
@@ -45,7 +45,6 @@ async def on_ready():
 
 # 投票オブジェクトを作成するヘルパー関数
 def create_salmon_poll(question_text: str):
-    # discord.Poll は対応している Discord.py のバージョンが必要です
     try:
         poll = discord.Poll(
             question=question_text,
@@ -63,12 +62,15 @@ def create_salmon_poll(question_text: str):
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(text="投票のタイトルと一緒に送るメッセージ")
 async def send_m(interaction: discord.Interaction, text: str = "さーもん万歳！"):
-    # ⚙️ ブラックリストチェック（型を合わせるため int に変換して比較）
     guild_id = interaction.guild_id
     channel_id = interaction.channel_id
     
-    if (guild_id and guild_id in IGNORE_GUILD_IDS) or (channel_id and channel_id in IGNORE_CHANNEL_IDS):
-        await interaction.response.send_message("⚠️ この場所でのコマンド使用は禁止されています。", ephemeral=True)
+    # ⚙️ ブラックリストチェック（ギルドが存在する場合のみ判定）
+    if guild_id and guild_id in IGNORE_GUILD_IDS:
+        await interaction.response.send_message("⚠️ このサーバーでのコマンド使用は禁止されています。", ephemeral=True)
+        return
+    if channel_id and channel_id in IGNORE_CHANNEL_IDS:
+        await interaction.response.send_message("⚠️ このチャンネルでのコマンド使用は禁止されています。", ephemeral=True)
         return
 
     # 1. 安全のために保留（考え中...を開始）
@@ -90,14 +92,14 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     embed = discord.Embed(
         title="🐟 【超重大】 さーもん万歳通知 🐟",
         description=embed_description,
-        color=discord.Color.from_rgb(255, 111, 97) # サーモンピンク
+        color=discord.Color.from_rgb(255, 111, 97)
     )
     embed.set_author(name="さーもん公式プロモーター")
     embed.set_footer(text="さーもんの集い © 2026")
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
-    # 2. 保留直後に1通目を送信
+    # 2. 1通目（Embed＋長文テキスト）送信
     try:
         await interaction.followup.send(
             content=heavy_content,
@@ -109,10 +111,10 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
         print(f"❌ 1通目の送信に失敗: {e}")
         return
 
-    # 追加送信
+    # 3. 追加送信（1.5秒空けてレートリミット対策を強化）
     target_followups = 2
     for i in range(target_followups):
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(1.5) # 少し間隔を広げて安全に送信
         try:
             await interaction.followup.send(
                 content=heavy_content, 
@@ -122,8 +124,8 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
         except Exception as e:
             print(f"❌ 送信エラー (追加 {i+1}回目): {e}")
 
-    # 3. 最後に投票（または予備メッセージ）を送信
-    await asyncio.sleep(1.0)
+    # 4. 最後に投票を送信
+    await asyncio.sleep(1.5)
     try:
         poll_obj = create_salmon_poll(text)
         if poll_obj:
