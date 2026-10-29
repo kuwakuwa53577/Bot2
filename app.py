@@ -53,8 +53,8 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
     poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
     return poll
 
-# /m コマンド（外部アプリ対応：安定高速送信版）
-@bot.tree.command(name="m", description="仕様上の限界である2000文字のテキスト、埋め込み、画像、投票を順番に送信します")
+# /m コマンド（外部アプリ完全最適化・超安定版）
+@bot.tree.command(name="m", description="2000文字のテキスト、埋め込み、画像、投票を安全かつ高速に送信します")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(text="投票のタイトルと一緒に送るメッセージ")
@@ -64,21 +64,18 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
         await interaction.response.send_message("⚠️ この場所でのコマンド使用は禁止されています。", ephemeral=True)
         return
 
-    # 最初のレスポンスを保留
-    await interaction.response.defer(thinking=True)
-
     # 📝 通常テキスト用の1ブロック文字列定義（太字装飾つき）
-    single_block = "**さーもん万歳！いますぐさーもんの集いに参加！** https://sus5.netlify.app/#SamonAtumai @everyone \n\n"
+    single_block = "**さーもん万歳！いますぐさーもんの集いに参加！** https://netlify.app @everyone \n\n"
     
     # 💡 Discordの最大仕様（2000文字）を超えないように安全にテキストを構築
     heavy_content = ""
     while len(heavy_content) + len(single_block) < 1950:
         heavy_content += single_block
 
-    # 📈 埋め込み（Embed）の構築（最大サイズを安全圏の2500文字に調整）
+    # 📈 埋め込み（Embed）の構築
     embed_block = "**さーもんの集いはあなたを歓迎します！**\n極上のさーもん体験を今すぐここで。逃す手はありません！\n\n"
     embed_description = ""
-    while len(embed_description) + len(embed_block) < 2500:
+    while len(embed_description) + len(embed_block) < 2000:
         embed_description += embed_block
 
     embed = discord.Embed(
@@ -95,37 +92,45 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     image_files = ["acc4d0a0.gif", "a62e0a5b.gif", "IMG_3948.png", "DSC_9262.png", "20260913_162130.png", "PXL_20261004_095516_336.png"]
     existing_files = [f for f in image_files if os.path.exists(f)]
 
-    # メッセージの連続送信（計4回分）
-    target_count = 4
-    for i in range(target_count):
+    # 🛠️ 【ここが重要】最初の1通目を即座に送ることで、「考え中…」の表示を即座に消し去ります！
+    try:
+        files_obj = [discord.File(f) for f in existing_files] if existing_files else []
+        await interaction.response.send_message(
+            content=heavy_content,
+            embed=embed,
+            files=files_obj,
+            allowed_mentions=mention_setting
+        )
+        print("✅ 1通目を送信完了（これで『考え中...』が消えます）")
+    except Exception as e:
+        print(f"❌ 1通目の送信に失敗: {e}")
+        return
+
+    # 外部アプリのAPI制限を回避するため、残りのメッセージ送信を「2回」に調整して確実に届かせます
+    target_followups = 2
+    for i in range(target_followups):
+        # 連続送信による負荷を抑えるための待機時間
+        await asyncio.sleep(2.0)
         try:
-            # ループごとに新しくFileオブジェクトを定義
             files_obj = [discord.File(f) for f in existing_files] if existing_files else []
-            
-            # 初回メッセージにのみ重い「埋め込み(Embed)」を添付して確実に表示させる（2回目以降は安定化のため除外）
-            current_embed = embed if i == 0 else None
-            
+            # 2回目以降はテキストと画像のみをスピーディに送信
             await interaction.followup.send(
                 content=heavy_content, 
-                embed=current_embed, 
                 files=files_obj, 
                 allowed_mentions=mention_setting
             )
-            
-            # APIの過負荷（429エラー）を防ぐための待機時間（1.5秒）
-            await asyncio.sleep(1.5)
-            
+            print(f"✅ 追加メッセージ送信完了 ({i+1}/{target_followups})")
         except discord.errors.HTTPException as http_err:
-            print(f"❌ Discord APIエラー (ループ {i+1}回目): ステータス={http_err.status}, メッセージ={http_err.text}")
-            # エラーが出ても次の処理や投票へ進むため、breakせず継続します
+            print(f"❌ Discord APIエラー (追加 {i+1}回目): {http_err.text}")
         except Exception as e:
-            print(f"❌ 送信エラー (ループ {i+1}回目): {e}")
+            print(f"❌ 送信エラー (追加 {i+1}回目): {e}")
 
-    # 5回目の最終枠で投票を送信
+    # 締めくくりに「投票」を確実に送信
+    await asyncio.sleep(2.0)
     try:
         poll_obj = create_salmon_poll(text)
         await interaction.followup.send(poll=poll_obj)
-        print("✅ 全てのメッセージと投票の送信プロセスが完了しました。")
+        print("✅ 最終投票の送信が完了しました！")
     except Exception as poll_err:
         print(f"❌ 最終投票の送信失敗: {poll_err}")
 
