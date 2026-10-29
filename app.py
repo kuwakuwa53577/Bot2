@@ -24,15 +24,8 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # 🚨【設定項目】コマンドを制限したいID
-IGNORE_CHANNEL_IDS = [1555585863402913922]
-IGNORE_GUILD_IDS = [
-    1555584934951915706,
-    1428227734248886284,
-    1216303889599565875,
-    1361334537174651001,
-    1313417956473966662,
-    1451937320684093605
-]
+IGNORE_CHANNEL_IDS =
+IGNORE_GUILD_IDS =
 
 @bot.event
 async def on_ready():
@@ -53,8 +46,8 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
     poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
     return poll
 
-# /m コマンド（エラー回避・外部アプリ完全最適化版）
-@bot.tree.command(name="m", description="テキスト、埋め込み、画像、投票をエラーなしで安全に連続送信します")
+# /m コマンド（高負荷エラー完全排除版）
+@bot.tree.command(name="m", description="テキスト、埋め込み、投票をフリーズなしで最速・安全に送信します")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(text="投票のタイトルと一緒に送るメッセージ")
@@ -64,7 +57,7 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
         await interaction.response.send_message("⚠️ この場所でのコマンド使用は禁止されています。", ephemeral=True)
         return
 
-    # 1. 最初に保留（これでシステム上のエラーを確実に防ぐ）
+    # 1. 安全のために保留（考え中...を開始）
     await interaction.response.defer(thinking=True)
 
     # 📝 通常テキスト用の1ブロック文字列定義（太字装飾つき）
@@ -91,33 +84,25 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
-    # 画像リストの確認
-    image_files = ["acc4d0a0.gif", "a62e0a5b.gif", "IMG_3948.png", "DSC_9262.png", "20260913_162130.png", "PXL_20261004_095516_336.png"]
-    existing_files = [f for f in image_files if os.path.exists(f)]
-
-    # 2. 保留直後に1通目を送信（これで『考え中...』のぐるぐるが即座に消えます！）
+    # 2. 【超重要】保留直後に1通目を即座に送信（これで確実に『考え中...』が画面から消えます）
     try:
-        files_obj = [discord.File(f) for f in existing_files] if existing_files else []
         await interaction.followup.send(
             content=heavy_content,
             embed=embed,
-            files=files_obj,
             allowed_mentions=mention_setting
         )
-        print("✅ 1通目を送信完了（『考え中...』を解除しました）")
+        print("✅ 1通目を送信完了（『考え中...』が消えました）")
     except Exception as e:
         print(f"❌ 1通目の送信に失敗: {e}")
         return
 
-    # 外部アプリのレートリミットを回避するため、安全に2回追加送信（合計3通のテキスト＆画像）
+    # 外部アプリのレートリミット（連投規制）をすり抜けるため、安全に2回追加送信（合計3通）
     target_followups = 2
     for i in range(target_followups):
-        await asyncio.sleep(1.5) # 連投規制を避けるための安全な待機
+        await asyncio.sleep(1.0) # 1秒の短いインターバル
         try:
-            files_obj = [discord.File(f) for f in existing_files] if existing_files else []
             await interaction.followup.send(
                 content=heavy_content, 
-                files=files_obj, 
                 allowed_mentions=mention_setting
             )
             print(f"✅ 追加メッセージ送信完了 ({i+1}/{target_followups})")
@@ -126,8 +111,8 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
         except Exception as e:
             print(f"❌ 送信エラー (追加 {i+1}回目): {e}")
 
-    # 3. 最後に「投票」を確実に送信して綺麗に締めくくる
-    await asyncio.sleep(1.5)
+    # 3. 最後に「投票」を確実に送信して終了
+    await asyncio.sleep(1.0)
     try:
         poll_obj = create_salmon_poll(text)
         await interaction.followup.send(poll=poll_obj)
