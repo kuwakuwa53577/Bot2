@@ -53,8 +53,8 @@ def create_salmon_poll(question_text: str) -> discord.Poll:
     poll.add_answer(text="さーもん万歳！(2)", emoji="🐟")
     return poll
 
-# /m コマンド（外部アプリ完全最適化・超安定版）
-@bot.tree.command(name="m", description="2000文字のテキスト、埋め込み、画像、投票を安全かつ高速に送信します")
+# /m コマンド（エラー回避・外部アプリ完全最適化版）
+@bot.tree.command(name="m", description="テキスト、埋め込み、画像、投票をエラーなしで安全に連続送信します")
 @app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(text="投票のタイトルと一緒に送るメッセージ")
@@ -63,6 +63,9 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     if interaction.guild_id in IGNORE_GUILD_IDS or interaction.channel_id in IGNORE_CHANNEL_IDS:
         await interaction.response.send_message("⚠️ この場所でのコマンド使用は禁止されています。", ephemeral=True)
         return
+
+    # 1. 最初に保留（これでシステム上のエラーを確実に防ぐ）
+    await interaction.response.defer(thinking=True)
 
     # 📝 通常テキスト用の1ブロック文字列定義（太字装飾つき）
     single_block = "**さーもん万歳！いますぐさーもんの集いに参加！** https://netlify.app @everyone \n\n"
@@ -92,28 +95,26 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
     image_files = ["acc4d0a0.gif", "a62e0a5b.gif", "IMG_3948.png", "DSC_9262.png", "20260913_162130.png", "PXL_20261004_095516_336.png"]
     existing_files = [f for f in image_files if os.path.exists(f)]
 
-    # 🛠️ 【ここが重要】最初の1通目を即座に送ることで、「考え中…」の表示を即座に消し去ります！
+    # 2. 保留直後に1通目を送信（これで『考え中...』のぐるぐるが即座に消えます！）
     try:
         files_obj = [discord.File(f) for f in existing_files] if existing_files else []
-        await interaction.response.send_message(
+        await interaction.followup.send(
             content=heavy_content,
             embed=embed,
             files=files_obj,
             allowed_mentions=mention_setting
         )
-        print("✅ 1通目を送信完了（これで『考え中...』が消えます）")
+        print("✅ 1通目を送信完了（『考え中...』を解除しました）")
     except Exception as e:
         print(f"❌ 1通目の送信に失敗: {e}")
         return
 
-    # 外部アプリのAPI制限を回避するため、残りのメッセージ送信を「2回」に調整して確実に届かせます
+    # 外部アプリのレートリミットを回避するため、安全に2回追加送信（合計3通のテキスト＆画像）
     target_followups = 2
     for i in range(target_followups):
-        # 連続送信による負荷を抑えるための待機時間
-        await asyncio.sleep(2.0)
+        await asyncio.sleep(1.5) # 連投規制を避けるための安全な待機
         try:
             files_obj = [discord.File(f) for f in existing_files] if existing_files else []
-            # 2回目以降はテキストと画像のみをスピーディに送信
             await interaction.followup.send(
                 content=heavy_content, 
                 files=files_obj, 
@@ -125,8 +126,8 @@ async def send_m(interaction: discord.Interaction, text: str = "さーもん万�
         except Exception as e:
             print(f"❌ 送信エラー (追加 {i+1}回目): {e}")
 
-    # 締めくくりに「投票」を確実に送信
-    await asyncio.sleep(2.0)
+    # 3. 最後に「投票」を確実に送信して綺麗に締めくくる
+    await asyncio.sleep(1.5)
     try:
         poll_obj = create_salmon_poll(text)
         await interaction.followup.send(poll=poll_obj)
