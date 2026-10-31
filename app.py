@@ -23,15 +23,21 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-IGNORE_CHANNEL_IDS = [1555585863402913922]
-IGNORE_GUILD_IDS = [    
-    1555584934951915706,
-    1428227734248886284,
-    1216303889599565875,
-    1361334537174651001,
-    1313417956473966662,
-    1451937320684093605
+# =================【セキュリティ設定】=================
+# ★ 対策1: コマンドの実行を許可する「ロール名」
+# この名前のロールをサーバー内で持っているユーザーなら実行可能になります
+ALLOWED_ROLE_IDS = [
+    1566113401028223248  # ← 許可したいロールのIDに書き換えてください
 ]
+# ★ 対策2: コマンドの実行を「絶対に」許可するユーザーID（バックアップ用）
+# ロールを持っていなくても、ここにIDがある人は常に実行できます
+ALLOWED_USER_IDS = [
+    1488072800278413500  # ← あなたのDiscordユーザーIDに書き換えてください
+]
+# =====================================================
+
+IGNORE_CHANNEL_IDS = []
+IGNORE_GUILD_IDS = []
 
 @bot.event
 async def on_ready():
@@ -55,7 +61,7 @@ def create_salmon_poll(question_text: str):
         return None
 
 @bot.tree.command(name="m", description="長文メッセージと投票を大量かつ安全に連続送信します")
-@app_commands.allowed_installs(guilds=True, users=True)
+@app_commands.allowed_installs(guilds=True, users=True)  # 自衛用として他サーバーでも使うためTrueのまま
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(
     text="投票のタイトルと一緒に送るメッセージ",
@@ -68,6 +74,32 @@ async def send_m(
     target_role: discord.Role = None,
     target_user: discord.Member = None
 ):
+    # ----------------- ホワイトリスト検証（ID版） -----------------
+    is_allowed = False
+
+    # 1. ユーザーIDが直接許可されているかチェック
+    if interaction.user.id in ALLOWED_USER_IDS:
+        is_allowed = True
+
+    # 2. 実行したユーザーが許可されたロールIDを持っているかチェック
+    elif isinstance(interaction.user, discord.Member):
+        # ユーザーが持っているロールのIDリストを取得
+        user_role_ids = [role.id for role in interaction.user.roles]
+        
+        # ユーザーのロールIDと、許可されたロールIDに1つでも重なりがあるか判定
+        if any(role_id in ALLOWED_ROLE_IDS for role_id in user_role_ids):
+            is_allowed = True
+
+    # 許可されていない場合は即座に拒否
+    if not is_allowed:
+        await interaction.response.send_message(
+            "⚠️ 権限エラー: 許可されたロールIDを所持していないため、このコマンドは実行できません。", 
+            ephemeral=True
+        )
+        return
+
+    # ----------------------------------------------------
+
     guild_id = interaction.guild_id
     channel_id = interaction.channel_id
     
@@ -78,7 +110,7 @@ async def send_m(
         await interaction.response.send_message("⚠️ このチャンネルでのコマンド使用は禁止されています。", ephemeral=True)
         return
 
-    # 1. 保留開始
+    # 保留開始
     await interaction.response.defer(thinking=True)
 
     mention_strs = ["@everyone"]
@@ -88,14 +120,13 @@ async def send_m(
         mention_strs.append(target_user.mention)
     all_mentions_text = " ".join(mention_strs)
 
-    base_msg = f"{all_mentions_text} **さーもんの集いに今すぐ参加！さーもん万歳！！** https://sus5.netlify.app/#SamonAtumai \n"
+    base_msg = f"{all_mentions_text} **さーもんの集いに今すぐ参加！さーもん万歳！！** https://netlify.app \n"
     heavy_content = ""
     while len(heavy_content) + len(base_msg) <= 1995:
         heavy_content += base_msg
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
-    # ★ ここで「長文メッセージを何回送るか」を設定できます（例: 4回送信）
     TOTAL_MESSAGE_COUNT = 4 
 
     for i in range(TOTAL_MESSAGE_COUNT):
