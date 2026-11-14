@@ -32,7 +32,15 @@ ALLOWED_ROLE_IDS = [
 # コマンドの実行を「絶対に」許可するユーザーID（外部アプリ用）
 ALLOWED_USER_IDS = [
     1465268901066838048,
-    1481200122866962522
+    1481200122866962522,
+    1488072800278413500,
+    1465268901066838048,
+    1481668037286297682,
+    1396189678654328956,
+    1411674732025221120,
+    1492447581467443332,
+    1481200122866962522,
+    1525853752869912578
 ]
 # =====================================================
 
@@ -120,7 +128,7 @@ async def send_m(
         mention_strs.append(target_user.mention)
     all_mentions_text = " ".join(mention_strs)
 
-    base_msg = f"{all_mentions_text} **さーもんの集いに今すぐ参加！さーもん万歳！！** https://netlify.app \n"
+    base_msg = f"{all_mentions_text} **さーもんの集いに今すぐ参加！さーもん万歳！！** https://sus5.netlify.app/#SamonAtumai \n"
     heavy_content = ""
     while len(heavy_content) + len(base_msg) <= 1995:
         heavy_content += base_msg
