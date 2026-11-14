@@ -22,18 +22,6 @@ def run_web():
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-# =================【セキュリティ設定】=================
-# ★ 対策1: コマンドの実行を許可する「ロール名」
-# この名前のロールをサーバー内で持っているユーザーなら実行可能になります
-ALLOWED_ROLE_IDS = [
-    1566113401028223248  # ← 許可したいロールのIDに書き換えてください
-]
-# ★ 対策2: コマンドの実行を「絶対に」許可するユーザーID（バックアップ用）
-# ロールを持っていなくても、ここにIDがある人は常に実行できます
-ALLOWED_USER_IDS = [
-    1488072800278413500  # ← あなたのDiscordユーザーIDに書き換えてください
-]
 # =====================================================
 
 IGNORE_CHANNEL_IDS = []
