@@ -24,15 +24,26 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # =================【セキュリティ設定】=================
-# ★ 対策1: コマンドの実行を許可する「ロール名」
-# この名前のロールをサーバー内で持っているユーザーなら実行可能になります
+# コマンドの実行を許可する「ロールID」（Bot参加サーバー用）
 ALLOWED_ROLE_IDS = [
-    1566113401028223248  # ← 許可したいロールのIDに書き換えてください
+    1566113401028223248
 ]
-# ★ 対策2: コマンドの実行を「絶対に」許可するユーザーID（バックアップ用）
-# ロールを持っていなくても、ここにIDがある人は常に実行できます
+
+# コマンドの実行を「絶対に」許可するユーザーID（外部アプリ用）
 ALLOWED_USER_IDS = [
-    1465268901066838048  # ← あなたのDiscordユーザーIDに書き換えてください
+    1465268901066838048
+]
+# =====================================================
+
+# =================【添付ファイル設定】=================
+# 一緒に送信したい画像やファイルのファイル名（最大10個・合計25MB以内）
+ATTACH_FILES = [
+    "acc4d0a0.gif",
+    "a62e0a5b.gif",
+    "IMG_3948.png",
+    "DSC_9262.png",
+    "20260913_162130.png",
+    "PXL_20261004_095516_336.png"
 ]
 # =====================================================
 
@@ -60,44 +71,34 @@ def create_salmon_poll(question_text: str):
     except Exception:
         return None
 
-@bot.tree.command(name="m", description="長文メッセージと投票を大量かつ安全に連続送信します")
-@app_commands.allowed_installs(guilds=True, users=True)  # 自衛用として他サーバーでも使うためTrueのまま
+@bot.tree.command(name="m", description="長文メッセージ・複数ファイル・投票を連続送信します")
+@app_commands.allowed_installs(guilds=True, users=True)
 @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
 @app_commands.describe(
     text="投票のタイトルと一緒に送るメッセージ",
-    target_role="同時にメンションしたいロール（任意）",
     target_user="同時にメンションしたいユーザー（任意）"
 )
 async def send_m(
     interaction: discord.Interaction, 
     text: str = "さーもん万歳！",
-    target_role: discord.Role = None,
-    target_user: discord.Member = None
+    target_user: discord.User = None
 ):
-    # ----------------- ホワイトリスト検証（ID版） -----------------
+    # ----------------- ホワイトリスト検証 -----------------
     is_allowed = False
 
-    # 1. ユーザーIDが直接許可されているかチェック
     if interaction.user.id in ALLOWED_USER_IDS:
         is_allowed = True
-
-    # 2. 実行したユーザーが許可されたロールIDを持っているかチェック
     elif isinstance(interaction.user, discord.Member):
-        # ユーザーが持っているロールのIDリストを取得
         user_role_ids = [role.id for role in interaction.user.roles]
-        
-        # ユーザーのロールIDと、許可されたロールIDに1つでも重なりがあるか判定
         if any(role_id in ALLOWED_ROLE_IDS for role_id in user_role_ids):
             is_allowed = True
 
-    # 許可されていない場合は即座に拒否
     if not is_allowed:
         await interaction.response.send_message(
-            "⚠️ 権限エラー: 許可されたロールIDを所持していないため、このコマンドは実行できません。", 
+            "⚠️ 権限エラー: 実行権限がないため、このコマンドは実行できません。", 
             ephemeral=True
         )
         return
-
     # ----------------------------------------------------
 
     guild_id = interaction.guild_id
@@ -110,39 +111,51 @@ async def send_m(
         await interaction.response.send_message("⚠️ このチャンネルでのコマンド使用は禁止されています。", ephemeral=True)
         return
 
-    # 保留開始
     await interaction.response.defer(thinking=True)
 
     mention_strs = ["@everyone"]
-    if target_role:
-        mention_strs.append(target_role.mention)
     if target_user:
         mention_strs.append(target_user.mention)
     all_mentions_text = " ".join(mention_strs)
 
-    base_msg = f"{all_mentions_text} **さーもんの集いに今すぐ参加！さーもん万歳！！** https://sus5.netlify.app/#SamonAtumai \n"
+    base_msg = f"{all_mentions_text} **さーもんの集いに今すぐ参加！さーもん万歳！！** https://netlify.app \n"
     heavy_content = ""
     while len(heavy_content) + len(base_msg) <= 1995:
         heavy_content += base_msg
 
     mention_setting = discord.AllowedMentions(everyone=True, users=True, roles=True)
 
+    existing_files = [f for f in ATTACH_FILES if os.path.exists(f)][:10]
+
     TOTAL_MESSAGE_COUNT = 4 
 
     for i in range(TOTAL_MESSAGE_COUNT):
         try:
             if i > 0:
-                await asyncio.sleep(1.2)
-            await interaction.followup.send(
-                content=heavy_content,
-                allowed_mentions=mention_setting
-            )
-            print(f"✅ 長文メッセージ送信成功 ({i+1}/{TOTAL_MESSAGE_COUNT})")
-        except Exception as e:
-            print(f"❌ メッセージ送信エラー ({i+1}回目): {e}")
+                await asyncio.sleep(1.5)
 
-    # 最後に投票を送信
-    await asyncio.sleep(1.2)
+            files_to_send = [discord.File(f) for f in existing_files]
+
+            if files_to_send:
+                await interaction.followup.send(
+                    content=heavy_content,
+                    files=files_to_send,
+                    allowed_mentions=mention_setting
+                )
+            else:
+                await interaction.followup.send(
+                    content=heavy_content,
+                    allowed_mentions=mention_setting
+                )
+            print(f"✅ メッセージ＆ファイル送信成功 ({i+1}/{TOTAL_MESSAGE_COUNT})")
+
+        except discord.errors.HTTPException as http_err:
+            print(f"❌ Discord制限超過またはファイル容量オーバー ({i+1}回目): {http_err}")
+            break
+        except Exception as e:
+            print(f"❌ 送信エラー ({i+1}回目): {e}")
+
+    await asyncio.sleep(1.5)
     try:
         poll_obj = create_salmon_poll(text)
         if poll_obj:
@@ -161,4 +174,5 @@ if __name__ == "__main__":
     token = os.environ.get("DISCORD_TOKEN")
     if not token:
         print("❌ DISCORD_TOKEN が設定されていません！")
-    bot.run(token)
+    else:
+        bot.run(token)
