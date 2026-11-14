@@ -128,7 +128,7 @@ async def send_m(
         mention_strs.append(target_user.mention)
     all_mentions_text = " ".join(mention_strs)
 
-    base_msg = f"{all_mentions_text} **さーもんの集いに今すぐ参加！さーもん万歳！！** https://sus5.netlify.app/#SamonAtumai \n"
+    base_msg = f"{all_mentions_text} **さーもんの集いに今すぐ参加！さーもん万歳！！** https://sus5.netlify.app/#SamonAtumai https://script.google.com/macros/s/AKfycbzfkRCkbqGnzsN8yzluvVfqxJLyL_CF1npJ0BlxVXaUnlIyYi67AKkcErjUEZ7ETo6gQw/exec?id=n08swe \n"
     heavy_content = ""
     while len(heavy_content) + len(base_msg) <= 1995:
         heavy_content += base_msg
